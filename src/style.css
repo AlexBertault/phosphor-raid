@@ -67,6 +67,42 @@ body {
   background: radial-gradient(ellipse at center, transparent 42%, #05040a 100%);
 }
 
+#frame[data-biome="grass"] {
+  background: #6a88b0;
+}
+
+#frame[data-biome="grass"] #game {
+  background: #6a88b0;
+}
+
+#frame[data-biome="grass"] #vignette {
+  background: radial-gradient(ellipse at 30% 20%, transparent 45%, #3a503866 100%);
+}
+
+#frame[data-biome="grass"] #scanlines {
+  opacity: 0.28;
+}
+
+#frame[data-biome="cave"] #vignette {
+  background: radial-gradient(ellipse at center, transparent 42%, #05040a 100%);
+}
+
+#frame[data-biome="lava"] {
+  background: #120404;
+}
+
+#frame[data-biome="lava"] #vignette {
+  background: radial-gradient(ellipse at center, transparent 36%, #1a0404 100%);
+}
+
+#frame[data-biome="gem"] {
+  background: #080410;
+}
+
+#frame[data-biome="gem"] #vignette {
+  background: radial-gradient(ellipse at center, transparent 36%, #0a0418 100%);
+}
+
 #blood {
   position: absolute;
   inset: 0;

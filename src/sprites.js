@@ -1,4 +1,4 @@
-import { C, GENE_PALETTES } from "./palette.js";
+import { C } from "./palette.js";
 
 export function makeCanvas(w, h) {
   const c = document.createElement("canvas");
@@ -186,57 +186,94 @@ export function playerSprite(frame = 0) {
   return c;
 }
 
-export function tileSheet(rng) {
+export function tileSheet(rng, theme = C) {
+  const biome = theme.biome || "cave";
   const floor = makeCanvas(16, 16);
   const wall = makeCanvas(16, 16);
   const crate = makeCanvas(16, 16);
-  const goo = makeCanvas(16, 16);
+  const goo = [makeCanvas(16, 16), makeCanvas(16, 16)];
   const portal = [makeCanvas(16, 16), makeCanvas(16, 16)];
+  const fa = theme.floorA || C.floorA;
+  const fb = theme.floorB || C.floorB;
+  const fc = theme.floorC || C.floorC;
+  const pebble = theme.pebble || fc;
+  const wallC = theme.wall || C.wall;
+  const wallHi = theme.wallHi || C.wallHi;
+  const wallLo = theme.wallLo || C.wallLo;
+  const gooC = theme.goo || C.goo;
+  const gooHi = theme.gooHi || C.gooHi;
+  const crateC = theme.crate || C.crate;
+  const crateHi = theme.crateHi || C.crateHi;
+  const crateLo = theme.crateLo || C.crateLo;
+  const portalA = theme.portal || C.portal;
+  const portalB = theme.portal2 || C.portal2;
+  const voidC = theme.void || C.void;
 
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
       const n = rng.next();
-      const floorC = n > 0.92 ? C.floorC : n > 0.45 ? C.floorB : C.floorA;
-      px(floor.ctx, x, y, floorC);
-      if (n > 0.97) px(floor.ctx, x, y, "#2a2444");
+      if (biome === "grass") {
+        px(floor.ctx, x, y, n > 0.55 ? fa : fb);
+        if (n > 0.88) px(floor.ctx, x, y, fc);
+        if (n > 0.97) px(floor.ctx, x, y, pebble);
+        if ((x + y * 3) % 11 === 0) px(floor.ctx, x, y, gooHi);
+        const rocky = n > 0.62;
+        px(wall.ctx, x, y, rocky ? wallC : wallLo);
+        if (n > 0.9) px(wall.ctx, x, y, wallHi);
+        if (y < 4 && n > 0.4) px(wall.ctx, x, y, gooC);
+        if (y === 0 && n > 0.5) px(wall.ctx, x, y, gooHi);
+      } else if (biome === "lava") {
+        px(floor.ctx, x, y, n > 0.5 ? fa : fb);
+        if (n > 0.93) px(floor.ctx, x, y, pebble);
+        if (y % 7 === 3 && n > 0.4) px(floor.ctx, x, y, wallHi);
+        px(wall.ctx, x, y, n > 0.5 ? wallC : wallLo);
+        if (y % 6 === 0) px(wall.ctx, x, y, wallHi);
+        if (n > 0.94) px(wall.ctx, x, y, pebble);
+      } else if (biome === "gem") {
+        px(floor.ctx, x, y, n > 0.5 ? fa : fb);
+        if (n > 0.9) px(floor.ctx, x, y, pebble);
+        if (n > 0.97) px(floor.ctx, x, y, gooHi);
+        const facet = ((x + y) / 3) | 0;
+        px(wall.ctx, x, y, facet % 2 ? wallC : wallLo);
+        if ((x + y) % 7 === 0) px(wall.ctx, x, y, wallHi);
+        if (n > 0.92) px(wall.ctx, x, y, pebble);
+      } else {
+        px(floor.ctx, x, y, n > 0.92 ? fc : n > 0.45 ? fb : fa);
+        if (n > 0.96) px(floor.ctx, x, y, pebble);
+        const clump = ((x * 3 + y * 7) / 5) | 0;
+        px(wall.ctx, x, y, clump % 2 ? wallC : wallLo);
+        if (n > 0.88) px(wall.ctx, x, y, wallHi);
+        if (y % 8 === 0) px(wall.ctx, x, y, wallLo);
+      }
 
-      const brick = ((x / 4) | 0) + ((y / 5) | 0);
-      px(wall.ctx, x, y, brick % 2 ? C.wall : "#32264a");
-      if (y % 5 === 0 || (x + (y > 5 ? 2 : 0)) % 4 === 0) px(wall.ctx, x, y, C.wallLo);
-      if (y % 5 === 1) px(wall.ctx, x, y, C.wallHi);
-
-      px(crate.ctx, x, y, C.crate);
-      if (x === 0 || y === 0) px(crate.ctx, x, y, C.crateHi);
-      if (x === 15 || y === 15) px(crate.ctx, x, y, C.crateLo);
-      if (x === 8 || y === 8) px(crate.ctx, x, y, C.crateLo);
-
-      const d = Math.hypot(x - 7.5, y - 7.5);
-      px(goo.ctx, x, y, d < 6.5 ? C.goo : C.floorB);
-      if (d < 4 && rng.chance(0.4)) px(goo.ctx, x, y, C.gooHi);
+      px(crate.ctx, x, y, crateC);
+      if (x === 0 || y === 0) px(crate.ctx, x, y, crateHi);
+      if (x === 15 || y === 15) px(crate.ctx, x, y, crateLo);
+      if (x === 8 || y === 8) px(crate.ctx, x, y, crateLo);
     }
   }
 
   for (let f = 0; f < 2; f++) {
     for (let y = 0; y < 16; y++) {
       for (let x = 0; x < 16; x++) {
-        px(portal[f].ctx, x, y, C.floorB);
         const d = Math.hypot(x - 7.5, y - 7.5);
-        if (d < 7) px(portal[f].ctx, x, y, f ? C.portal2 : C.portal);
-        if (d < 4) px(portal[f].ctx, x, y, C.void);
-        if (d < 2) px(portal[f].ctx, x, y, f ? C.portal : C.portal2);
+        px(goo[f].ctx, x, y, d < 6.5 ? gooC : fb);
+        if (d < 4 && (f || rng.chance(0.45))) px(goo[f].ctx, x, y, gooHi);
+        if (biome === "grass" && d < 5 && rng.chance(0.2)) px(goo[f].ctx, x, y, pebble);
+
+        px(portal[f].ctx, x, y, fb);
+        if (d < 7) px(portal[f].ctx, x, y, f ? portalB : portalA);
+        if (d < 4) px(portal[f].ctx, x, y, voidC);
+        if (d < 2) px(portal[f].ctx, x, y, f ? portalA : portalB);
       }
     }
   }
 
-  return { floor: floor.c, wall: wall.c, crate: crate.c, goo: goo.c, portal: portal.map((p) => p.c) };
-}
-
-export function pickPalette(rng) {
-  const base = rng.pick(GENE_PALETTES).slice();
-  if (rng.chance(0.35)) {
-    const i = rng.int(0, 2);
-    const j = rng.int(0, 2);
-    [base[i], base[j]] = [base[j], base[i]];
-  }
-  return base;
+  return {
+    floor: floor.c,
+    wall: wall.c,
+    crate: crate.c,
+    goo: goo.map((g) => g.c),
+    portal: portal.map((p) => p.c),
+  };
 }

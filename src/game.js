@@ -1,6 +1,6 @@
 import { createRng, hashSeed } from "./rng.js";
-import { C } from "./palette.js";
-import { creatureSprite, playerSprite, tileSheet, pickPalette } from "./sprites.js";
+import { C, biomeOf, biomeName, themeOf, pickPalette } from "./palette.js";
+import { creatureSprite, playerSprite, tileSheet } from "./sprites.js";
 import {
   T,
   TILE,
@@ -34,6 +34,10 @@ const BOSS_PAL = [
   ["#ffc857", "#8a2a10", "#fff3e0", "#ff4d9a"],
   ["#ff2d6a", "#6a1020", "#ffb3d4", "#ffc857"],
 ];
+const GEM_BOSS_PAL = [
+  ["#c77dff", "#4a2870", "#ecd4ff", "#5ce1ff"],
+  ["#ff4dff", "#6a1060", "#ffb3f4", "#ffc857"],
+];
 
 function bossTier(floor) {
   if (floor < 5 || floor % 5 !== 0) return 0;
@@ -42,18 +46,20 @@ function bossTier(floor) {
 
 function tune(floor) {
   const t = Math.max(0, floor - 1);
+  const biome = biomeOf(floor);
   return {
-    cols: Math.min(64, 22 + t * 4),
-    rows: Math.min(48, 16 + t * 3),
-    splits: Math.min(26, 3 + t * 3),
-    loops: Math.min(7, 1 + (t >> 1)),
-    crateMax: Math.min(4, t < 2 ? 0 : 1 + ((t / 3) | 0)),
-    gooChance: Math.min(0.5, t < 2 ? 0.04 : 0.14 + t * 0.04),
-    skipChance: Math.max(0, 0.4 - t * 0.07),
-    maxPerRoom: Math.min(5, 1 + ((t / 2) | 0)),
+    biome,
+    cols: biome === "grass" ? 20 : Math.min(64, 22 + t * 4),
+    rows: biome === "grass" ? 14 : Math.min(48, 16 + t * 3),
+    splits: biome === "grass" ? 2 : Math.min(26, 3 + t * 3),
+    loops: biome === "grass" ? 1 : Math.min(7, 1 + (t >> 1)),
+    crateMax: biome === "grass" ? 1 : Math.min(4, t < 2 ? 0 : 1 + ((t / 3) | 0)),
+    gooChance: biome === "grass" ? 0.22 : Math.min(0.5, t < 2 ? 0.04 : 0.14 + t * 0.04),
+    skipChance: biome === "grass" ? 0.15 : Math.max(0, 0.4 - t * 0.07),
+    maxPerRoom: biome === "grass" ? 1 : Math.min(5, 1 + ((t / 2) | 0)),
     bodies: t < 2 ? ["orb", "grub", "drone"] : t < 4 ? ["orb", "grub", "skitter", "drone"] : BODIES,
     ais: t < 3 ? ["orbit", "strafe"] : AIS,
-    shootChance: Math.min(0.95, 0.65 + t * 0.06),
+    shootChance: biome === "grass" ? 0.45 : Math.min(0.95, 0.65 + t * 0.06),
     aggro: Math.min(160, 80 + t * 8),
     shootRange: Math.min(170, 110 + t * 6),
     bulletSpeed: Math.min(52, 28 + t * 2.2),
@@ -74,7 +80,7 @@ function genome(rng, p) {
   const shooty = rng.chance(p.shootChance);
   return {
     body,
-    palette: pickPalette(rng),
+    palette: pickPalette(rng, p.biome),
     eyes: rng.int(1, body === "orb" ? 3 : 2),
     spikes: rng.chance(0.2 + t * 0.05) ? rng.int(3, 8) : 0,
     snout: rng.chance(0.45),
@@ -95,7 +101,7 @@ function bossGenome(rng, p) {
   return {
     body: "brute",
     boss: true,
-    palette: rng.pick(BOSS_PAL),
+    palette: rng.pick(p.biome === "gem" ? GEM_BOSS_PAL : BOSS_PAL),
     eyes: Math.min(5, 2 + (tier >> 1)),
     spikes: 6 + tier * 2,
     snout: true,
@@ -134,9 +140,11 @@ function makeEnemy(rng, x, y, p, boss = false) {
 function spawnFloor(seed, floor) {
   const p = tune(floor);
   p.floor = floor;
+  const theme = themeOf(floor);
+  p.theme = theme;
   const rng = createRng(hashSeed(seed + floor * 997));
   const map = generateDungeon(rng.int(1, 1e9), p);
-  const tiles = tileSheet(createRng(seed + 17));
+  const tiles = tileSheet(createRng(seed + 17 + floor * 13), theme);
   const enemies = [];
   const tier = bossTier(floor);
   let bossRoom = null;
@@ -175,7 +183,7 @@ function spawnFloor(seed, floor) {
       enemies.push(makeEnemy(rng, x, y, p));
     }
   }
-  return { rng, map, tiles, enemies, p };
+  return { rng, map, tiles, enemies, p, theme, biome: p.biome };
 }
 
 function readBest() {
@@ -275,13 +283,17 @@ export function createGame(canvas, ui) {
     emptyT = 0;
     slash = null;
     hideShop();
+    const place = biomeName(floor);
     toast(
       newRun
-        ? "DEPTH 1 · GO DEEP"
+        ? "SURFACE · THE CAVE WAITS"
         : bossTier(floor)
           ? "DEPTH " + floor + " · BOSS GENOME"
-          : "DEPTH " + floor + " · HEAT UP",
+          : "DEPTH " + floor + " · " + place,
     );
+    const frameEl = canvas.closest("#frame") || document.querySelector("#frame");
+    if (frameEl) frameEl.dataset.biome = world.biome || biomeOf(floor);
+    canvas.style.background = (world.theme && world.theme.void) || C.void;
     if (ui.seed) ui.seed.textContent = "SEED " + seed.toString(16).toUpperCase();
     renderDepth();
     renderHp();
@@ -1010,8 +1022,17 @@ export function createGame(canvas, ui) {
     const sy = (Math.random() - 0.5) * shake;
     const ox = cam.x + sx;
     const oy = cam.y + sy;
-    bctx.fillStyle = C.void;
+    const theme = world.theme || C;
+    bctx.fillStyle = theme.void || C.void;
     bctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (world.biome === "grass") {
+      bctx.fillStyle = theme.skyHi || "#c8e4ff";
+      bctx.fillRect(8, 4, 22, 16);
+      bctx.fillStyle = theme.sun || "#fff3c0";
+      bctx.fillRect(12, 7, 10, 10);
+      bctx.fillStyle = "#ffffff";
+      bctx.fillRect(15, 10, 3, 3);
+    }
 
     const c0 = Math.max(0, Math.floor(ox / TILE) - 1);
     const r0 = Math.max(0, Math.floor(oy / TILE) - 1);
@@ -1027,7 +1048,7 @@ export function createGame(canvas, ui) {
         let img = world.tiles.floor;
         if (kind === T.WALL || kind === T.VOID) img = world.tiles.wall;
         else if (kind === T.CRATE) img = world.tiles.crate;
-        else if (kind === T.GOO) img = world.tiles.goo;
+        else if (kind === T.GOO) img = world.tiles.goo[tick % 2];
         else if (kind === T.PORTAL) img = world.tiles.portal[tick % 2];
         bctx.drawImage(img, x, y);
       }
@@ -1151,7 +1172,7 @@ export function createGame(canvas, ui) {
       for (let c = 0; c < world.map.cols; c++) {
         const k = world.map.tiles[r * world.map.cols + c];
         if (k === T.WALL || k === T.VOID) continue;
-        bctx.fillStyle = k === T.PORTAL ? C.portal : "#3a3355";
+        bctx.fillStyle = k === T.PORTAL ? world.theme?.portal || C.portal : world.theme?.minimap || "#3a3355";
         bctx.fillRect(x0 + c * sx, y0 + r * sy, Math.max(1, sx), Math.max(1, sy));
       }
     }
