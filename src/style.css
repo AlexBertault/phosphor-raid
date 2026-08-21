@@ -266,8 +266,9 @@ body {
 }
 
 #coins {
-  font-size: 8px;
+  font-size: 10px;
   color: var(--amber);
+  letter-spacing: 1px;
   text-shadow: 0 0 8px #ffc85788, 2px 2px 0 #000;
 }
 
@@ -325,13 +326,13 @@ body {
 
 .shop-btn {
   font-family: inherit;
-  font-size: 7px;
-  line-height: 1.55;
+  font-size: 6px;
+  line-height: 1.5;
   text-align: left;
   color: var(--ink);
   background: #1a1528;
   border: 2px solid #5ce1ff;
-  padding: 8px 8px 7px;
+  padding: 6px 7px 5px;
   cursor: pointer;
 }
 

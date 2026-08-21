@@ -23,6 +23,10 @@ const SHOP = [
   { id: "mg", name: "MACHINE GUN", desc: "18 rnd spray", cost: 40, once: true },
   { id: "reload", name: "SPEEDLOADER", desc: "faster reload", cost: 16, once: true },
   { id: "heart", name: "HEART", desc: "+1 max HP", cost: 14, once: false, max: 4 },
+  { id: "boots", name: "DASH BOOTS", desc: "faster move + dash", cost: 18, once: true },
+  { id: "swipe", name: "WIDE SWIPE", desc: "longer harder Q", cost: 20, once: true },
+  { id: "vest", name: "PLATE VEST", desc: "-1 hit damage", cost: 26, once: true },
+  { id: "lucky", name: "LUCK CHARM", desc: "+50% coins", cost: 16, once: true },
 ];
 
 const BODIES = ["orb", "skitter", "grub", "tank", "drone"];
@@ -326,7 +330,7 @@ export function createGame(canvas, ui) {
         ang: 0,
         moveAng: 0,
       };
-      kit = { dual: false, mg: false, reload: false, hearts: 0 };
+      kit = { dual: false, mg: false, reload: false, hearts: 0, boots: false, swipe: false, vest: false, lucky: false };
       coins = 0;
     } else {
       player.x = world.map.start.x;
@@ -480,6 +484,10 @@ export function createGame(canvas, ui) {
     if (id === "dual") kit.dual = true;
     if (id === "mg") kit.mg = true;
     if (id === "reload") kit.reload = true;
+    if (id === "boots") kit.boots = true;
+    if (id === "swipe") kit.swipe = true;
+    if (id === "vest") kit.vest = true;
+    if (id === "lucky") kit.lucky = true;
     if (id === "heart") {
       kit.hearts += 1;
       player.maxHp += 1;
@@ -554,22 +562,15 @@ export function createGame(canvas, ui) {
   }
 
   function tickShop() {
-    if (keys.has("Digit1")) {
-      keys.delete("Digit1");
-      buy("dual");
-    }
-    if (keys.has("Digit2")) {
-      keys.delete("Digit2");
-      buy("mg");
-    }
-    if (keys.has("Digit3")) {
-      keys.delete("Digit3");
-      buy("reload");
-    }
-    if (keys.has("Digit4")) {
-      keys.delete("Digit4");
-      buy("heart");
-    }
+    SHOP.forEach((item, i) => {
+      const n = String(i + 1);
+      if (keys.has("Digit" + n) || keys.has("Numpad" + n) || keys.has(n)) {
+        keys.delete("Digit" + n);
+        keys.delete("Numpad" + n);
+        keys.delete(n);
+        buy(item.id);
+      }
+    });
     if (keys.has("Enter") || keys.has("enter") || keys.has("NumpadEnter") || keys.has("Space")) {
       keys.delete("Enter");
       keys.delete("enter");
@@ -592,7 +593,8 @@ export function createGame(canvas, ui) {
       renderKills();
       sfx.sfxDie();
       burst(e.x, e.y, e.gene.palette[3], 18);
-      spawnCoins(e.x, e.y, (e.gene.boss ? floor * 3 : floor) + (Math.random() < 0.35 ? floor : 0));
+      burst(e.x, e.y, C.amber, 5);
+      addCoins((e.gene.boss ? floor * 3 : floor) + (Math.random() < 0.35 ? floor : 0));
       if (Math.random() < 0.1) spawnPickup(e.x, e.y);
     }
   }
@@ -618,6 +620,7 @@ export function createGame(canvas, ui) {
 
   function hurtPlayer(dmg) {
     if (invuln > 0 || over) return;
+    if (kit.vest) dmg = Math.max(1, dmg - 1);
     player.hp -= dmg;
     invuln = 0.72;
     shake = 5;
@@ -638,19 +641,12 @@ export function createGame(canvas, ui) {
     }
   }
 
-  function spawnCoins(x, y, value) {
-    const n = Math.max(1, value | 0);
-    particles.push({
-      x,
-      y,
-      vx: (Math.random() - 0.5) * 40,
-      vy: -30 - Math.random() * 20,
-      life: 12,
-      color: C.amber,
-      s: 3,
-      coin: true,
-      value: n,
-    });
+  function addCoins(n) {
+    let got = Math.max(1, n | 0);
+    if (kit.lucky) got += Math.max(1, (got / 2) | 0);
+    coins += got;
+    sfx.sfxCoin();
+    renderCoins();
   }
 
   function spawnPickup(x, y) {
@@ -710,20 +706,21 @@ export function createGame(canvas, ui) {
   }
 
   function swingMelee() {
-    meleeT = world.p.meleeCd;
+    meleeT = world.p.meleeCd * (kit.swipe ? 0.62 : 1);
     slash = { life: SPIN_LIFE, max: SPIN_LIFE };
     sfx.sfxMelee();
     burst(player.x, player.y, C.player, 10);
     burst(player.x, player.y, C.amber, 8);
+    const reach = kit.swipe ? MELEE_REACH + 10 : MELEE_REACH;
     for (const e of world.enemies) {
       if (!e.alive) continue;
       const d = Math.hypot(e.x - player.x, e.y - player.y);
-      if (d > MELEE_REACH + e.r) continue;
-      hitEnemy(e, 2);
+      if (d > reach + e.r) continue;
+      hitEnemy(e, kit.swipe ? 3 : 2);
     }
     for (let i = eBullets.length - 1; i >= 0; i--) {
       const b = eBullets[i];
-      if (Math.hypot(b.x - player.x, b.y - player.y) <= MELEE_REACH + (b.r || 4)) {
+      if (Math.hypot(b.x - player.x, b.y - player.y) <= reach + (b.r || 4)) {
         burst(b.x, b.y, C.hp, 4);
         eBullets.splice(i, 1);
       }
@@ -740,7 +737,7 @@ export function createGame(canvas, ui) {
       if (crate && crate.kind === T.CRATE && breakCrate(world.map, crate.c, crate.r)) {
         sfx.sfxCrate();
         burst((crate.c + 0.5) * TILE, (crate.r + 0.5) * TILE, C.crateHi, 8);
-        if (Math.random() < 0.45) spawnCoins((crate.c + 0.5) * TILE, (crate.r + 0.5) * TILE, Math.max(1, floor));
+        if (Math.random() < 0.45) addCoins(Math.max(1, floor));
         if (Math.random() < 0.28) spawnPickup((crate.c + 0.5) * TILE, (crate.r + 0.5) * TILE);
       }
     }
@@ -769,8 +766,8 @@ export function createGame(canvas, ui) {
     player.ang = lock ? Math.atan2(lock.y - player.y, lock.x - player.x) : player.moveAng;
 
     if ((keys.has("ShiftLeft") || keys.has("ShiftRight")) && dashCd <= 0) {
-      dashT = 0.14;
-      dashCd = 0.38;
+      dashT = kit.boots ? 0.18 : 0.14;
+      dashCd = kit.boots ? 0.26 : 0.38;
       invuln = Math.max(invuln, 0.12);
       sfx.sfxDash();
       burst(player.x, player.y, C.player, 6);
@@ -796,7 +793,8 @@ export function createGame(canvas, ui) {
       }
     }
 
-    const speed = dashT > 0 ? world.p.dashSpeed : world.p.playerSpeed;
+    const spdMul = kit.boots ? 1.22 : 1;
+    const speed = (dashT > 0 ? world.p.dashSpeed : world.p.playerSpeed) * spdMul;
     moveCircle(world.map, player, move.x * speed * dt, move.y * speed * dt);
     if (player.kx || player.ky) {
       moveCircle(world.map, player, player.kx * dt, player.ky * dt);
@@ -1038,20 +1036,6 @@ export function createGame(canvas, ui) {
       p.y += p.vy * dt;
       p.vx *= 0.92;
       p.vy *= 0.92;
-      if (p.coin) {
-        const dx = player.x - p.x;
-        const dy = player.y - p.y;
-        const d = Math.hypot(dx, dy) || 1;
-        p.vx += (dx / d) * 180 * dt;
-        p.vy += (dy / d) * 180 * dt;
-        if (d < 12) {
-          coins += p.value || 1;
-          sfx.sfxCoin();
-          renderCoins();
-          particles.splice(i, 1);
-          continue;
-        }
-      }
       if (p.pickup && Math.hypot(p.x - player.x, p.y - player.y) < 10) {
         if (player.hp < player.maxHp) {
           player.hp += 1;
@@ -1103,7 +1087,7 @@ export function createGame(canvas, ui) {
         if (hit.kind === T.CRATE && breakCrate(world.map, hit.c, hit.r)) {
           sfx.sfxCrate();
           burst(b.x, b.y, C.crateHi, 8);
-          if (Math.random() < 0.45) spawnCoins((hit.c + 0.5) * TILE, (hit.r + 0.5) * TILE, Math.max(1, floor));
+          if (Math.random() < 0.45) addCoins(Math.max(1, floor));
           if (Math.random() < 0.28) spawnPickup((hit.c + 0.5) * TILE, (hit.r + 0.5) * TILE);
         }
         if (b.flame) burst(b.x, b.y, C.flame, 8);
