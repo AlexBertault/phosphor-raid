@@ -17,6 +17,12 @@ const VIEW_W = 320;
 const VIEW_H = 180;
 const MELEE_REACH = 30;
 const BEST_KEY = "phosphor-best";
+const SHOP = [
+  { id: "dual", name: "DUAL WIELD", desc: "two barrels", cost: 22, once: true },
+  { id: "mg", name: "MACHINE GUN", desc: "18 rnd spray", cost: 40, once: true },
+  { id: "reload", name: "SPEEDLOADER", desc: "faster reload", cost: 16, once: true },
+  { id: "heart", name: "HEART", desc: "+1 max HP", cost: 14, once: false, max: 4 },
+];
 
 const BODIES = ["orb", "skitter", "grub", "tank", "drone"];
 const AIS = ["chase", "strafe", "orbit", "ambush"];
@@ -152,17 +158,20 @@ export function createGame(canvas, ui) {
   let shake = 0;
   let over = false;
   let wonFloor = false;
+  let atGate = false;
+  let skipHint = false;
   let toastT = 0;
   let fireT = 0;
   let dashT = 0;
   let dashCd = 0;
   let invuln = 0;
-  let weapon = "gun";
   let mag = 3;
   let reloadT = 0;
   let meleeT = 0;
   let emptyT = 0;
   let slash = null;
+  let coins = 0;
+  let kit = { dual: false, mg: false, reload: false, hearts: 0 };
   let time = 0;
   let running = false;
   let last = 0;
@@ -180,7 +189,8 @@ export function createGame(canvas, ui) {
         ang: 0,
         moveAng: 0,
       };
-      weapon = "gun";
+      kit = { dual: false, mg: false, reload: false, hearts: 0 };
+      coins = 0;
     } else {
       player.x = world.map.start.x;
       player.y = world.map.start.y;
@@ -193,21 +203,46 @@ export function createGame(canvas, ui) {
     cam.y = player.y - VIEW_H / 2;
     over = false;
     wonFloor = false;
+    atGate = false;
+    skipHint = false;
     fireT = 0;
     dashT = 0;
     dashCd = 0;
     invuln = 0;
-    mag = world.p.mag;
+    mag = gunStats().mag;
     reloadT = 0;
     meleeT = 0;
     emptyT = 0;
     slash = null;
+    hideShop();
     toast(newRun ? "DEPTH 1 · GO DEEP" : "DEPTH " + floor + " · HEAT UP");
     if (ui.seed) ui.seed.textContent = "SEED " + seed.toString(16).toUpperCase();
     renderDepth();
     renderHp();
     renderKills();
     renderLoadout();
+    renderCoins();
+  }
+
+  function gunStats() {
+    return {
+      mag: kit.mg ? 18 : 3,
+      fireRate: kit.mg ? 0.055 : 0.1,
+      reload: (kit.mg ? 1.15 : 2) * (kit.reload ? 0.62 : 1),
+    };
+  }
+
+  function gunName() {
+    if (reloadT > 0) return "RELOAD";
+    if (kit.mg && kit.dual) return "DUAL MG";
+    if (kit.mg) return "MACHINE GUN";
+    if (kit.dual) return "DUAL";
+    return "GUN";
+  }
+
+  function renderCoins() {
+    if (ui.coins) ui.coins.textContent = coins + "c";
+    if (ui.shopCoins) ui.shopCoins.textContent = String(coins);
   }
 
   function renderDepth() {
@@ -237,15 +272,95 @@ export function createGame(canvas, ui) {
 
   function renderLoadout() {
     if (!ui.weapon || !ui.ammo) return;
-    ui.weapon.textContent = weapon === "melee" ? "BLADE" : reloadT > 0 ? "RELOAD" : "GUN";
-    ui.weapon.classList.toggle("melee", weapon === "melee");
+    ui.weapon.textContent = gunName();
+    ui.weapon.classList.remove("melee");
+    const cap = gunStats().mag;
     ui.ammo.innerHTML = "";
-    for (let i = 0; i < world.p.mag; i++) {
+    if (cap > 6) {
+      ui.ammo.className = "count";
+      ui.ammo.textContent = mag + "/" + cap;
+      return;
+    }
+    ui.ammo.className = "";
+    for (let i = 0; i < cap; i++) {
       const shell = document.createElement("div");
-      const filled = weapon === "melee" ? true : i < mag;
-      shell.className = "shell" + (filled ? "" : " empty") + (reloadT > 0 && weapon === "gun" ? " reload" : "");
+      shell.className = "shell" + (i < mag ? "" : " empty") + (reloadT > 0 ? " reload" : "");
       ui.ammo.appendChild(shell);
     }
+  }
+
+  function hideShop() {
+    if (ui.shop) ui.shop.classList.add("hidden");
+  }
+
+  function shopReady() {
+    return !over && (wonFloor || atGate);
+  }
+
+  function owned(id) {
+    if (id === "heart") return kit.hearts;
+    return !!kit[id];
+  }
+
+  function canBuy(item) {
+    if (coins < item.cost) return false;
+    if (item.once && owned(item.id)) return false;
+    if (item.max && owned(item.id) >= item.max) return false;
+    return true;
+  }
+
+  function applyUpgrade(id) {
+    if (id === "dual") kit.dual = true;
+    if (id === "mg") kit.mg = true;
+    if (id === "reload") kit.reload = true;
+    if (id === "heart") {
+      kit.hearts += 1;
+      player.maxHp += 1;
+      player.hp += 1;
+      renderHp();
+    }
+    mag = gunStats().mag;
+    reloadT = 0;
+    renderLoadout();
+  }
+
+  function buy(id) {
+    const item = SHOP.find((s) => s.id === id);
+    if (!item || !shopReady() || !canBuy(item)) {
+      sfx.sfxEmpty();
+      return;
+    }
+    coins -= item.cost;
+    applyUpgrade(id);
+    sfx.sfxBuy();
+    renderCoins();
+    renderShop();
+    toast(item.name + " EQUIPPED");
+  }
+
+  function renderShop() {
+    if (!ui.shop || !ui.shopList) return;
+    if (!shopReady() || over) {
+      hideShop();
+      return;
+    }
+    ui.shop.classList.remove("hidden");
+    renderCoins();
+    ui.shopList.innerHTML = "";
+    SHOP.forEach((item, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "shop-btn";
+      const got = item.once && owned(item.id);
+      const maxed = item.max && owned(item.id) >= item.max;
+      btn.disabled = got || maxed || coins < item.cost;
+      btn.innerHTML =
+        i + 1 + " " + item.name + "<br /><span class='price'>" +
+        (got || maxed ? "OWNED" : item.cost + "c") +
+        "</span> " + item.desc;
+      btn.addEventListener("click", () => buy(item.id));
+      ui.shopList.appendChild(btn);
+    });
   }
 
   function hitEnemy(e, dmg) {
@@ -261,7 +376,8 @@ export function createGame(canvas, ui) {
       renderKills();
       sfx.sfxDie();
       burst(e.x, e.y, e.gene.palette[3], 18);
-      if (Math.random() < 0.14) spawnPickup(e.x, e.y);
+      spawnCoins(e.x, e.y, floor + (Math.random() < 0.35 ? floor : 0));
+      if (Math.random() < 0.1) spawnPickup(e.x, e.y);
     }
   }
 
@@ -295,11 +411,27 @@ export function createGame(canvas, ui) {
     if (player.hp <= 0) {
       player.hp = 0;
       over = true;
+      hideShop();
       sfx.sfxDie();
       const prev = readBest();
       const best = writeBest(floor);
       ui.showOver(kills, floor, best, floor >= prev);
     }
+  }
+
+  function spawnCoins(x, y, value) {
+    const n = Math.max(1, value | 0);
+    particles.push({
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 40,
+      vy: -30 - Math.random() * 20,
+      life: 12,
+      color: C.amber,
+      s: 3,
+      coin: true,
+      value: n,
+    });
   }
 
   function spawnPickup(x, y) {
@@ -385,7 +517,8 @@ export function createGame(canvas, ui) {
       if (crate && crate.kind === T.CRATE && breakCrate(world.map, crate.c, crate.r)) {
         sfx.sfxCrate();
         burst((crate.c + 0.5) * TILE, (crate.r + 0.5) * TILE, C.crateHi, 8);
-        if (Math.random() < 0.38) spawnPickup((crate.c + 0.5) * TILE, (crate.r + 0.5) * TILE);
+        if (Math.random() < 0.45) spawnCoins((crate.c + 0.5) * TILE, (crate.r + 0.5) * TILE, Math.max(1, floor));
+        if (Math.random() < 0.28) spawnPickup((crate.c + 0.5) * TILE, (crate.r + 0.5) * TILE);
       }
     }
   }
@@ -425,8 +558,8 @@ export function createGame(canvas, ui) {
       reloadT -= dt;
       if (reloadT <= 0) {
         reloadT = 0;
-        mag = world.p.mag;
-        sfx.sfxReload();
+        mag = gunStats().mag;
+        sfx.sfxReloadDone();
         renderLoadout();
       }
     }
@@ -437,18 +570,31 @@ export function createGame(canvas, ui) {
       moveCircle(world.map, player, move.x * -speed * 0.25 * dt, move.y * -speed * 0.25 * dt);
     }
 
-    if (keys.has("KeyF")) {
-      keys.delete("KeyF");
-      weapon = weapon === "gun" ? "melee" : "gun";
-      sfx.sfxSwap();
-      toast(weapon === "melee" ? "BLADE · 360 SWIPE" : "GUN · 3 SHOTS");
-      renderLoadout();
+    if (keys.has("Digit1")) {
+      keys.delete("Digit1");
+      buy("dual");
+    }
+    if (keys.has("Digit2")) {
+      keys.delete("Digit2");
+      buy("mg");
+    }
+    if (keys.has("Digit3")) {
+      keys.delete("Digit3");
+      buy("reload");
+    }
+    if (keys.has("Digit4")) {
+      keys.delete("Digit4");
+      buy("heart");
+    }
+
+    if (keys.has("KeyQ") && meleeT <= 0) {
+      swingMelee();
     }
 
     if (keys.has("KeyR")) {
       keys.delete("KeyR");
-      if (reloadT <= 0 && mag < world.p.mag) {
-        reloadT = world.p.reload;
+      if (reloadT <= 0 && mag < gunStats().mag) {
+        reloadT = gunStats().reload;
         sfx.sfxReload();
         renderLoadout();
         toast("RELOADING");
@@ -458,9 +604,7 @@ export function createGame(canvas, ui) {
     }
 
     if (keys.has("Space")) {
-      if (weapon === "melee") {
-        if (meleeT <= 0) swingMelee();
-      } else if (reloadT > 0) {
+      if (reloadT > 0) {
         if (emptyT <= 0) {
           emptyT = 0.18;
           sfx.sfxEmpty();
@@ -473,10 +617,16 @@ export function createGame(canvas, ui) {
             toast("RELOAD · R");
           }
         } else {
-          fireT = world.p.fireRate;
+          const stats = gunStats();
+          fireT = stats.fireRate;
           mag -= 1;
-          shoot(player, player.ang, 280, false);
-          sfx.sfxShoot();
+          if (kit.dual) {
+            shoot(player, player.ang, 280, false, -0.12);
+            shoot(player, player.ang, 280, false, 0.12);
+          } else {
+            shoot(player, player.ang, 280, false);
+          }
+          sfx.sfxShoot(kit.mg);
           renderLoadout();
         }
       }
@@ -556,6 +706,20 @@ export function createGame(canvas, ui) {
       p.y += p.vy * dt;
       p.vx *= 0.92;
       p.vy *= 0.92;
+      if (p.coin) {
+        const dx = player.x - p.x;
+        const dy = player.y - p.y;
+        const d = Math.hypot(dx, dy) || 1;
+        p.vx += (dx / d) * 180 * dt;
+        p.vy += (dy / d) * 180 * dt;
+        if (d < 12) {
+          coins += p.value || 1;
+          sfx.sfxCoin();
+          renderCoins();
+          particles.splice(i, 1);
+          continue;
+        }
+      }
       if (p.pickup && Math.hypot(p.x - player.x, p.y - player.y) < 10) {
         if (player.hp < player.maxHp) {
           player.hp += 1;
@@ -568,15 +732,24 @@ export function createGame(canvas, ui) {
       if (p.life <= 0) particles.splice(i, 1);
     }
 
+    const gateDist = Math.hypot(player.x - world.map.portal.x, player.y - world.map.portal.y);
+    atGate = gateDist < 52;
+
     if (world.enemies.length === 0 && !wonFloor) {
       wonFloor = true;
-      toast("GATE OPEN · DEPTH " + (floor + 1) + " WAITING");
+      toast("CLEARED · ARMORY OPEN");
+    }
+    if (!wonFloor && atGate && !skipHint) {
+      skipHint = true;
+      toast("GATE · SKIP KILLS, SKIP THEIR COINS");
+    }
+    if (shopReady()) {
+      if (ui.shop && ui.shop.classList.contains("hidden")) renderShop();
+    } else {
+      hideShop();
     }
 
-    if (
-      wonFloor &&
-      Math.hypot(player.x - world.map.portal.x, player.y - world.map.portal.y) < 12
-    ) {
+    if (gateDist < 12) {
       nextFloor();
       return;
     }
@@ -599,7 +772,8 @@ export function createGame(canvas, ui) {
         if (hit.kind === T.CRATE && breakCrate(world.map, hit.c, hit.r)) {
           sfx.sfxCrate();
           burst(b.x, b.y, C.crateHi, 8);
-          if (Math.random() < 0.38) spawnPickup((hit.c + 0.5) * TILE, (hit.r + 0.5) * TILE);
+          if (Math.random() < 0.45) spawnCoins((hit.c + 0.5) * TILE, (hit.r + 0.5) * TILE, Math.max(1, floor));
+          if (Math.random() < 0.28) spawnPickup((hit.c + 0.5) * TILE, (hit.r + 0.5) * TILE);
         }
         list.splice(i, 1);
         continue;
@@ -632,6 +806,7 @@ export function createGame(canvas, ui) {
     floor += 1;
     world = spawnFloor(seed, floor);
     landOnFloor({ newRun: false });
+    hideShop();
   }
 
   function restart() {
@@ -703,7 +878,7 @@ export function createGame(canvas, ui) {
       const y = (lock.y - oy - img.height / 2) | 0;
       const w = img.width;
       const h = img.height;
-      bctx.fillStyle = weapon === "melee" ? C.amber : C.portal;
+      bctx.fillStyle = C.portal;
       bctx.fillRect(x - 1, y - 1, 3, 1);
       bctx.fillRect(x - 1, y - 1, 1, 3);
       bctx.fillRect(x + w - 2, y - 1, 3, 1);

@@ -127,8 +127,82 @@ body {
   box-shadow: none;
 }
 
-.shell.reload {
-  background: var(--amber);
+#coins {
+  font-size: 8px;
+  color: var(--amber);
+  text-shadow: 0 0 8px #ffc85788, 2px 2px 0 #000;
+}
+
+#ammo.count {
+  font-size: 8px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+}
+
+#shop {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  z-index: 7;
+  width: min(520px, 94vw);
+  padding: 12px 12px 10px;
+  background: #0e0c18ee;
+  border: 3px solid var(--amber);
+  box-shadow: 0 0 0 3px #05040a, 0 0 24px #ffc85744;
+  pointer-events: auto;
+}
+
+#shop.hidden {
+  display: none;
+}
+
+.shop-title {
+  font-size: 8px;
+  color: var(--amber);
+  text-align: center;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+#shop-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.shop-btn {
+  font-family: inherit;
+  font-size: 7px;
+  line-height: 1.55;
+  text-align: left;
+  color: var(--ink);
+  background: #1a1528;
+  border: 2px solid #5ce1ff;
+  padding: 8px 8px 7px;
+  cursor: pointer;
+}
+
+.shop-btn:hover:not(:disabled) {
+  background: #243044;
+}
+
+.shop-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  border-color: #3a3355;
+}
+
+.shop-btn .price {
+  color: var(--amber);
+}
+
+.shop-hint {
+  margin-top: 10px;
+  font-size: 7px;
+  color: var(--dim);
+  text-align: center;
+  line-height: 1.6;
 }
 
 .pip {

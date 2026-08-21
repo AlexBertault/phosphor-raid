@@ -23,9 +23,9 @@ npm run preview
 | Key | Action |
 | --- | --- |
 | **WASD** / arrows | Move. Auto-aim locks the nearest enemy. |
-| **Space** | Fire the gun, or 360° sword swipe in blade mode |
-| **R** | Manual reload (3 shots, 2 seconds — nothing auto-racks) |
-| **F** | Switch gun / blade |
+| **Space** | Shoot |
+| **Q** | 360° sword swipe (bats bullets) |
+| **R** | Manual reload |
 | **Shift** | Dash |
 
 The fight is dodging fat, slow enemy shots. Far-away spitters are sloppy. The swipe hits everything around you and can bat bullets away. Die, and you restart from the death screen.

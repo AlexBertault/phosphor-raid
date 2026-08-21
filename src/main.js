@@ -17,6 +17,10 @@ const ui = {
   toast: document.querySelector("#toast"),
   weapon: document.querySelector("#weapon"),
   ammo: document.querySelector("#ammo"),
+  coins: document.querySelector("#coins"),
+  shop: document.querySelector("#shop"),
+  shopList: document.querySelector("#shop-list"),
+  shopCoins: document.querySelector("#shop-coins"),
   hideOverlay() {
     overlay.classList.add("hidden");
     hud.classList.remove("hidden");

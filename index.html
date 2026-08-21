@@ -18,6 +18,7 @@
             <span id="weapon">GUN</span>
             <div id="ammo"></div>
           </div>
+          <div id="coins">0c</div>
         </div>
         <div id="meta">
           <span id="floor">DEPTH 1</span>
@@ -27,6 +28,11 @@
         </div>
       </div>
       <div id="toast"></div>
+      <div id="shop" class="hidden">
+        <p class="shop-title">ARMORY · <span id="shop-coins">0</span>c</p>
+        <div id="shop-list"></div>
+        <p class="shop-hint">BUY, OR WALK IN AND SKIP LEFTOVER COINS</p>
+      </div>
       <div id="overlay">
         <div class="panel">
           <p class="eyebrow">32-BIT DUNGEON PROTOCOL</p>
@@ -37,7 +43,8 @@
           </p>
           <button id="start" type="button">INSERT COIN</button>
           <p class="controls">
-            WASD move · SPACE fire/swipe · R reload · F gun/blade · SHIFT dash
+            WASD move · SPACE shoot · Q swipe · R reload · SHIFT dash
+            · coins buy upgrades when a floor is cleared
           </p>
         </div>
       </div>
