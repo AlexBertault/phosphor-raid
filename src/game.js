@@ -284,6 +284,8 @@ export function createGame(canvas, ui) {
   dctx.imageSmoothingEnabled = false;
 
   const playerFrames = [playerSprite(0), playerSprite(1)];
+  const boot = new URLSearchParams(location.search);
+  let dev = boot.has("dev") || boot.has("depth");
   let scale = 1;
   let seed = (Math.random() * 1e9) | 0;
   let floor = 1;
@@ -619,7 +621,7 @@ export function createGame(canvas, ui) {
   }
 
   function hurtPlayer(dmg) {
-    if (invuln > 0 || over) return;
+    if (dev || invuln > 0 || over) return;
     if (kit.vest) dmg = Math.max(1, dmg - 1);
     player.hp -= dmg;
     invuln = 0.72;
@@ -749,6 +751,7 @@ export function createGame(canvas, ui) {
       toastT -= dt;
       if (toastT <= 0) ui.toast.textContent = "";
     }
+    tickDev();
     if (over || !player) {
       syncVitals();
       return;
@@ -1434,9 +1437,68 @@ export function createGame(canvas, ui) {
     requestAnimationFrame(frame);
   }
 
+  function setDev(on) {
+    dev = !!on;
+    if (ui.devBadge) ui.devBadge.classList.toggle("hidden", !dev);
+    if (dev) {
+      coins = Math.max(coins, 80);
+      mag = gunStats().mag;
+      reloadT = 0;
+      renderCoins();
+      renderLoadout();
+    }
+  }
+
+  function jumpTo(n) {
+    floor = Math.max(1, n | 0);
+    world = spawnFloor(seed, floor);
+    landOnFloor({ newRun: !player });
+    over = false;
+    hideShop();
+    const overlayEl = document.querySelector("#overlay");
+    if (overlayEl) overlayEl.classList.add("hidden");
+    if (ui.hideOverlay) ui.hideOverlay();
+    if (dev) {
+      coins = Math.max(coins, 80);
+      mag = gunStats().mag;
+      reloadT = 0;
+      renderCoins();
+      renderLoadout();
+    }
+    toast((dev ? "DEV · " : "") + "DEPTH " + floor + " · " + biomeName(floor));
+  }
+
+  function eatKey(...codes) {
+    let hit = false;
+    for (const c of codes) {
+      if (keys.has(c)) {
+        keys.delete(c);
+        hit = true;
+      }
+    }
+    return hit;
+  }
+
+  function tickDev() {
+    if (eatKey("Backquote", "`")) {
+      setDev(!dev);
+      toast(dev ? "DEV ON · [ ] FLOORS · 1 SURF 2 CAVE 5 MAGMA 0 GEM" : "DEV OFF");
+    }
+    if (!dev || shopping) return;
+    if (eatKey("BracketLeft", "[")) jumpTo(floor - 1);
+    if (eatKey("BracketRight", "]")) jumpTo(floor + 1);
+    if (eatKey("Digit1", "1")) jumpTo(1);
+    if (eatKey("Digit2", "2")) jumpTo(2);
+    if (eatKey("Digit5", "5")) jumpTo(5);
+    if (eatKey("Digit0", "0")) jumpTo(10);
+  }
+
   function start() {
     layout();
+    setDev(dev);
     restart();
+    const depth = Number(boot.get("depth") || 0);
+    if (depth > 1) jumpTo(depth);
     if (running) return;
     running = true;
     last = performance.now();

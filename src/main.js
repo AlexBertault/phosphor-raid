@@ -18,6 +18,7 @@ const ui = {
   weapon: document.querySelector("#weapon"),
   ammo: document.querySelector("#ammo"),
   coins: document.querySelector("#coins"),
+  devBadge: document.querySelector("#dev-badge"),
   shop: document.querySelector("#shop"),
   shopList: document.querySelector("#shop-list"),
   shopCoins: document.querySelector("#shop-coins"),
@@ -43,6 +44,12 @@ const ui = {
 };
 
 const game = createGame(canvas, ui);
+const params = new URLSearchParams(location.search);
+if (params.has("dev") || params.has("depth")) {
+  overlay.classList.add("hidden");
+  hud.classList.remove("hidden");
+  game.start();
+}
 
 startBtn.addEventListener("click", () => {
   unlockAudio();

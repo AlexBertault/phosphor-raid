@@ -272,6 +272,18 @@ body {
   text-shadow: 0 0 8px #ffc85788, 2px 2px 0 #000;
 }
 
+#dev-badge {
+  font-size: 6px;
+  line-height: 1.5;
+  color: var(--amber);
+  letter-spacing: 1px;
+  opacity: 0.9;
+}
+
+#dev-badge.hidden {
+  display: none;
+}
+
 #ammo.count {
   font-size: 8px;
   color: var(--cyan);
