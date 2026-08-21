@@ -1025,13 +1025,17 @@ export function createGame(canvas, ui) {
     const theme = world.theme || C;
     bctx.fillStyle = theme.void || C.void;
     bctx.fillRect(0, 0, VIEW_W, VIEW_H);
-    if (world.biome === "grass") {
-      bctx.fillStyle = theme.skyHi || "#c8e4ff";
-      bctx.fillRect(8, 4, 22, 16);
-      bctx.fillStyle = theme.sun || "#fff3c0";
-      bctx.fillRect(12, 7, 10, 10);
-      bctx.fillStyle = "#ffffff";
-      bctx.fillRect(15, 10, 3, 3);
+    if (world.tiles.wild) {
+      const gx0 = Math.floor(ox / TILE) - 1;
+      const gy0 = Math.floor(oy / TILE) - 1;
+      const gx1 = gx0 + ((VIEW_W / TILE) | 0) + 3;
+      const gy1 = gy0 + ((VIEW_H / TILE) | 0) + 3;
+      for (let gy = gy0; gy <= gy1; gy++) {
+        for (let gx = gx0; gx <= gx1; gx++) {
+          if (gx >= 0 && gy >= 0 && gx < world.map.cols && gy < world.map.rows) continue;
+          bctx.drawImage(world.tiles.wild, (gx * TILE - ox) | 0, (gy * TILE - oy) | 0);
+        }
+      }
     }
 
     const c0 = Math.max(0, Math.floor(ox / TILE) - 1);

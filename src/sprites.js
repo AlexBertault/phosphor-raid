@@ -188,6 +188,7 @@ export function playerSprite(frame = 0) {
 
 export function tileSheet(rng, theme = C) {
   const biome = theme.biome || "cave";
+  const wild = makeCanvas(16, 16);
   const floor = makeCanvas(16, 16);
   const wall = makeCanvas(16, 16);
   const crate = makeCanvas(16, 16);
@@ -212,44 +213,43 @@ export function tileSheet(rng, theme = C) {
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
       const n = rng.next();
+      const gx = x % 4;
+      const gy = y % 4;
+      const grout = gx === 0 || gy === 0;
+      const cobble = ((x / 4) | 0) + ((y / 4) | 0);
+
       if (biome === "grass") {
-        px(floor.ctx, x, y, n > 0.55 ? fa : fb);
-        if (n > 0.88) px(floor.ctx, x, y, fc);
-        if (n > 0.97) px(floor.ctx, x, y, pebble);
-        if ((x + y * 3) % 11 === 0) px(floor.ctx, x, y, gooHi);
-        const rocky = n > 0.62;
-        px(wall.ctx, x, y, rocky ? wallC : wallLo);
-        if (n > 0.9) px(wall.ctx, x, y, wallHi);
-        if (y < 4 && n > 0.4) px(wall.ctx, x, y, gooC);
-        if (y === 0 && n > 0.5) px(wall.ctx, x, y, gooHi);
+        let grass = n > 0.5 ? fa : fb;
+        if (n > 0.86 && n < 0.93) grass = pebble;
+        else if (n > 0.96) grass = fc;
+        px(floor.ctx, x, y, grass);
+        px(wall.ctx, x, y, grout ? wallLo : cobble % 2 ? wallC : wallHi);
+        px(wild.ctx, x, y, n > 0.55 ? "#2a2418" : "#1e1a12");
+        if (n > 0.9) px(wild.ctx, x, y, "#3a3224");
       } else if (biome === "lava") {
-        px(floor.ctx, x, y, n > 0.5 ? fa : fb);
-        if (n > 0.93) px(floor.ctx, x, y, pebble);
-        if (y % 7 === 3 && n > 0.4) px(floor.ctx, x, y, wallHi);
-        px(wall.ctx, x, y, n > 0.5 ? wallC : wallLo);
-        if (y % 6 === 0) px(wall.ctx, x, y, wallHi);
-        if (n > 0.94) px(wall.ctx, x, y, pebble);
+        px(floor.ctx, x, y, n > 0.62 ? fa : fb);
+        if (n > 0.9) px(floor.ctx, x, y, pebble);
+        if ((x + y * 2) % 9 === 0) px(floor.ctx, x, y, wallLo);
+        px(wall.ctx, x, y, grout ? wallLo : cobble % 2 ? wallC : wallHi);
+        if (gy === 2 && n > 0.55) px(wall.ctx, x, y, wallHi);
+        px(wild.ctx, x, y, n > 0.5 ? wallLo : voidC);
       } else if (biome === "gem") {
         px(floor.ctx, x, y, n > 0.5 ? fa : fb);
-        if (n > 0.9) px(floor.ctx, x, y, pebble);
-        if (n > 0.97) px(floor.ctx, x, y, gooHi);
-        const facet = ((x + y) / 3) | 0;
-        px(wall.ctx, x, y, facet % 2 ? wallC : wallLo);
-        if ((x + y) % 7 === 0) px(wall.ctx, x, y, wallHi);
-        if (n > 0.92) px(wall.ctx, x, y, pebble);
+        if (n > 0.93) px(floor.ctx, x, y, pebble);
+        px(wall.ctx, x, y, grout ? wallLo : cobble % 2 ? wallC : fa);
+        if (n > 0.9) px(wall.ctx, x, y, wallHi);
+        px(wild.ctx, x, y, n > 0.5 ? wallLo : voidC);
       } else {
-        px(floor.ctx, x, y, n > 0.92 ? fc : n > 0.45 ? fb : fa);
-        if (n > 0.96) px(floor.ctx, x, y, pebble);
-        const clump = ((x * 3 + y * 7) / 5) | 0;
-        px(wall.ctx, x, y, clump % 2 ? wallC : wallLo);
-        if (n > 0.88) px(wall.ctx, x, y, wallHi);
-        if (y % 8 === 0) px(wall.ctx, x, y, wallLo);
+        const speck = (x * 7 + y * 13) % 6 === 0;
+        px(floor.ctx, x, y, speck ? pebble : n > 0.5 ? fa : fc);
+        px(wall.ctx, x, y, grout ? wallLo : cobble % 2 ? wallC : wallHi);
+        if (n > 0.92) px(wall.ctx, x, y, fa);
+        px(wild.ctx, x, y, n > 0.5 ? wallLo : voidC);
       }
 
-      px(crate.ctx, x, y, crateC);
-      if (x === 0 || y === 0) px(crate.ctx, x, y, crateHi);
-      if (x === 15 || y === 15) px(crate.ctx, x, y, crateLo);
-      if (x === 8 || y === 8) px(crate.ctx, x, y, crateLo);
+      px(crate.ctx, x, y, y % 4 === 0 ? crateLo : crateC);
+      if (x === 0 || x === 15) px(crate.ctx, x, y, crateLo);
+      if (y % 4 === 1) px(crate.ctx, x, y, crateHi);
     }
   }
 
@@ -275,5 +275,6 @@ export function tileSheet(rng, theme = C) {
     crate: crate.c,
     goo: goo.map((g) => g.c),
     portal: portal.map((p) => p.c),
+    wild: wild.c,
   };
 }

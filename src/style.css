@@ -60,47 +60,51 @@ body {
     transparent 3px
   );
   mix-blend-mode: multiply;
-  opacity: 0.55;
+  opacity: 0.35;
 }
 
 #vignette {
-  background: radial-gradient(ellipse at center, transparent 42%, #05040a 100%);
+  background: radial-gradient(ellipse at center, transparent 62%, rgba(5, 4, 10, 0.45) 100%);
 }
 
 #frame[data-biome="grass"] {
-  background: #6a88b0;
+  background: #1a1814;
 }
 
 #frame[data-biome="grass"] #game {
-  background: #6a88b0;
+  background: #1a1814;
+}
+
+#frame[data-biome="cave"] {
+  background: #1c1c1e;
+}
+
+#frame[data-biome="cave"] #game {
+  background: #1c1c1e;
 }
 
 #frame[data-biome="grass"] #vignette {
-  background: radial-gradient(ellipse at 30% 20%, transparent 45%, #3a503866 100%);
-}
-
-#frame[data-biome="grass"] #scanlines {
-  opacity: 0.28;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(10, 14, 12, 0.4) 100%);
 }
 
 #frame[data-biome="cave"] #vignette {
-  background: radial-gradient(ellipse at center, transparent 42%, #05040a 100%);
+  background: radial-gradient(ellipse at center, transparent 62%, rgba(12, 10, 8, 0.38) 100%);
 }
 
 #frame[data-biome="lava"] {
-  background: #120404;
+  background: #120808;
 }
 
 #frame[data-biome="lava"] #vignette {
-  background: radial-gradient(ellipse at center, transparent 36%, #1a0404 100%);
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(18, 6, 4, 0.42) 100%);
 }
 
 #frame[data-biome="gem"] {
-  background: #080410;
+  background: #0c0814;
 }
 
 #frame[data-biome="gem"] #vignette {
-  background: radial-gradient(ellipse at center, transparent 36%, #0a0418 100%);
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(10, 4, 18, 0.42) 100%);
 }
 
 #blood {
