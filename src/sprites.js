@@ -271,12 +271,22 @@ export function tileSheet(rng, theme = C) {
     stampWrap(wall.ctx, 12, 11, 2.8, 2.4, wallC);
     fillMottle(wild.ctx, "#3a2818", "#2a1c10", "#1e140c", 41);
   } else if (biome === "lava") {
-    fillMottle(floor.ctx, fa, fb, fc, 51);
-    for (let i = 0; i < 5; i++) {
-      stampWrap(floor.ctx, rng.float(2, 13), rng.float(2, 13), rng.float(1.2, 2.2), rng.float(1.1, 2), wallLo);
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        const h = nxy(x >> 1, y >> 1, 51);
+        px(floor.ctx, x, y, h > 0.88 ? fc : h > 0.5 ? fb : fa);
+      }
     }
-    paintCobble(wall.ctx, wallLo, wallC, wallHi, fa, rng);
-    fillMottle(wild.ctx, wallLo, voidC, wallC, 61);
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        px(wall.ctx, x, y, wallC);
+      }
+    }
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        px(wild.ctx, x, y, wallLo);
+      }
+    }
   } else if (biome === "gem") {
     fillMottle(floor.ctx, fa, fb, fc, 71);
     paintCobble(wall.ctx, wallLo, wallC, fa, wallHi, rng);
