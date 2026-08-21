@@ -507,7 +507,7 @@ export function createGame(canvas, ui) {
 
   function swingMelee() {
     meleeT = world.p.meleeCd;
-    slash = { ang: player.ang, life: 0.18, spin: 0 };
+    slash = { life: 0.22 };
     sfx.sfxMelee();
     burst(player.x, player.y, C.amber, 14);
     for (const e of world.enemies) {
@@ -609,8 +609,12 @@ export function createGame(canvas, ui) {
       buy("heart");
     }
 
-    if (keys.has("KeyQ") && meleeT <= 0) {
-      swingMelee();
+    if (keys.has("KeyQ") || keys.has("q") || keys.has("KeyF") || keys.has("f")) {
+      keys.delete("KeyQ");
+      keys.delete("q");
+      keys.delete("KeyF");
+      keys.delete("f");
+      if (meleeT <= 0) swingMelee();
     }
 
     if (keys.has("KeyR")) {
@@ -930,19 +934,20 @@ export function createGame(canvas, ui) {
       bctx.drawImage(pf, -8, -8);
       bctx.restore();
       if (slash) {
-        bctx.fillStyle = C.amber;
-        const rings = 16;
-        const spin = (1 - slash.life / 0.18) * Math.PI;
-        for (let i = 0; i < rings; i++) {
-          const a = (i / rings) * Math.PI * 2 + spin;
-          const d = 10 + (i % 2);
-          bctx.fillRect(
-            (player.x - ox + Math.cos(a) * d) | 0,
-            (player.y - oy + Math.sin(a) * d) | 0,
-            2,
-            2,
-          );
+        const t = 1 - slash.life / 0.22;
+        const reach = 10 + t * 20;
+        bctx.save();
+        bctx.translate((player.x - ox) | 0, (player.y - oy) | 0);
+        for (let ring = 0; ring < 3; ring++) {
+          const d = reach - ring * 4;
+          const n = 22 + ring * 4;
+          bctx.fillStyle = ring === 0 ? C.amber : ring === 1 ? "#fff3a0" : C.player;
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2 + t * 2.4;
+            bctx.fillRect((Math.cos(a) * d) | 0, (Math.sin(a) * d) | 0, 3, 3);
+          }
         }
+        bctx.restore();
       }
     }
 

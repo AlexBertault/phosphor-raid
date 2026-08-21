@@ -6,11 +6,15 @@ export function bindInput() {
   bound = true;
   window.addEventListener("keydown", (e) => {
     keys.add(e.code);
-    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+    if (e.key) keys.add(e.key.toLowerCase());
+    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyQ"].includes(e.code)) {
       e.preventDefault();
     }
   });
-  window.addEventListener("keyup", (e) => keys.delete(e.code));
+  window.addEventListener("keyup", (e) => {
+    keys.delete(e.code);
+    if (e.key) keys.delete(e.key.toLowerCase());
+  });
   window.addEventListener("blur", () => keys.clear());
 }
 
