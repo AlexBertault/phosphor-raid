@@ -21,6 +21,9 @@ const ui = {
   shop: document.querySelector("#shop"),
   shopList: document.querySelector("#shop-list"),
   shopCoins: document.querySelector("#shop-coins"),
+  blood: document.querySelector("#blood"),
+  emptyCue: document.querySelector("#empty-cue"),
+  loadout: document.querySelector("#loadout"),
   hideOverlay() {
     overlay.classList.add("hidden");
     hud.classList.remove("hidden");

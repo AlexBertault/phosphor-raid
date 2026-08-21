@@ -43,6 +43,10 @@ The fight is dodging fat, slow enemy shots. Far-away spitters are sloppy. The sw
 - **Enemies** — body type, palette, eyes, spikes, AI, and weapons rolled from the floor seed.
 - **Tiles / sprites** — dithered pixel textures and creature sprites painted at runtime. No sprite sheets.
 
+## Audio
+
+SFX are synthesized in the browser (footsteps, gun, hurt, swipe, reload, coins). Background loop is **8-bit Theme — On The Offensive** by Ted Kerr ([OpenGameArt](https://opengameart.org/content/8-bit-theme-on-the-offensive), CC0).
+
 ## Stack
 
 Vanilla JS + HTML5 canvas + [Vite](https://vite.dev). No engine. Pixel buffer is 320×180, nearest-neighbor scaled.

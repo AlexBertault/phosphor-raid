@@ -234,6 +234,7 @@ export function createGame(canvas, ui) {
 
   function gunName() {
     if (reloadT > 0) return "RELOAD";
+    if (mag <= 0) return "EMPTY";
     if (kit.mg && kit.dual) return "DUAL MG";
     if (kit.mg) return "MACHINE GUN";
     if (kit.dual) return "DUAL";
@@ -279,6 +280,7 @@ export function createGame(canvas, ui) {
     if (cap > 6) {
       ui.ammo.className = "count";
       ui.ammo.textContent = mag + "/" + cap;
+      syncVitals();
       return;
     }
     ui.ammo.className = "";
@@ -286,6 +288,20 @@ export function createGame(canvas, ui) {
       const shell = document.createElement("div");
       shell.className = "shell" + (i < mag ? "" : " empty") + (reloadT > 0 ? " reload" : "");
       ui.ammo.appendChild(shell);
+    }
+    syncVitals();
+  }
+
+  function syncVitals() {
+    if (!player) return;
+    const empty = !over && mag <= 0 && reloadT <= 0;
+    const hp = player.hp;
+    const low = !over && hp > 0 && (hp <= 2 || hp / player.maxHp <= 0.34);
+    if (ui.loadout) ui.loadout.classList.toggle("dry", empty);
+    if (ui.emptyCue) ui.emptyCue.classList.toggle("hidden", !empty);
+    if (ui.blood) {
+      ui.blood.classList.toggle("low", low && hp > 1);
+      ui.blood.classList.toggle("critical", hp === 1 && !over);
     }
   }
 
@@ -408,6 +424,7 @@ export function createGame(canvas, ui) {
     sfx.sfxHurt();
     burst(player.x, player.y, C.hp, 12);
     renderHp();
+    syncVitals();
     if (player.hp <= 0) {
       player.hp = 0;
       over = true;
@@ -416,6 +433,7 @@ export function createGame(canvas, ui) {
       const prev = readBest();
       const best = writeBest(floor);
       ui.showOver(kills, floor, best, floor >= prev);
+      syncVitals();
     }
   }
 
@@ -525,14 +543,17 @@ export function createGame(canvas, ui) {
 
   function update(dt) {
     time += dt;
-    sfx.tickMusic(time, world.p.musicStep);
     if (toastT > 0) {
       toastT -= dt;
       if (toastT <= 0) ui.toast.textContent = "";
     }
-    if (over || !player) return;
+    if (over || !player) {
+      syncVitals();
+      return;
+    }
 
     const move = axis();
+    sfx.tickSteps((move.x !== 0 || move.y !== 0) && dashT <= 0, dt, false);
     if (move.x !== 0 || move.y !== 0) player.moveAng = Math.atan2(move.y, move.x);
     const lock = nearestEnemy();
     player.ang = lock ? Math.atan2(lock.y - player.y, lock.x - player.x) : player.moveAng;
@@ -550,6 +571,7 @@ export function createGame(canvas, ui) {
     fireT = Math.max(0, fireT - dt);
     meleeT = Math.max(0, meleeT - dt);
     emptyT = Math.max(0, emptyT - dt);
+    syncVitals();
     if (slash) {
       slash.life -= dt;
       if (slash.life <= 0) slash = null;
@@ -925,6 +947,24 @@ export function createGame(canvas, ui) {
     }
 
     drawMinimap();
+
+    if (!over && player) {
+      if (mag <= 0 && reloadT <= 0) {
+        const flash = ((time * 8) | 0) % 2 === 0;
+        bctx.fillStyle = flash ? "rgba(255,45,106,0.16)" : "rgba(255,45,106,0.06)";
+        bctx.fillRect(0, 0, VIEW_W, 3);
+        bctx.fillRect(0, VIEW_H - 3, VIEW_W, 3);
+        bctx.fillRect(0, 0, 3, VIEW_H);
+        bctx.fillRect(VIEW_W - 3, 0, 3, VIEW_H);
+      }
+      if (player.hp > 0 && (player.hp <= 2 || player.hp / player.maxHp <= 0.34)) {
+        const bpm = player.hp === 1 ? 11 : 7.5;
+        const beat = Math.max(0, Math.sin(time * bpm));
+        const a = player.hp === 1 ? 0.1 + beat * 0.16 : 0.05 + beat * 0.1;
+        bctx.fillStyle = "rgba(110,0,18," + a + ")";
+        bctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      }
+    }
 
     dctx.fillStyle = "#05040a";
     dctx.fillRect(0, 0, canvas.width, canvas.height);
