@@ -53,6 +53,12 @@ export function creatureSprite(rng, genome, frame = 0) {
   } else if (genome.body === "tank") {
     stamp(grid, size, size, cx, cy + bob, genome.coreR + 0.4, 1);
     stamp(grid, size, size, cx, cy - 1 + bob, genome.coreR * 0.7, 1);
+  } else if (genome.body === "brute") {
+    stamp(grid, size, size, cx, cy + 1 + bob, genome.coreR, 1);
+    stamp(grid, size, size, cx, cy - genome.coreR * 0.45 + bob, genome.coreR * 0.72, 1);
+    stamp(grid, size, size, cx - genome.coreR * 0.75, cy - genome.coreR * 0.95 + bob, 2.1, 1);
+    stamp(grid, size, size, cx + genome.coreR * 0.75, cy - genome.coreR * 0.95 + bob, 2.1, 1);
+    stamp(grid, size, size, cx, cy + genome.coreR * 0.55 + bob, genome.coreR * 0.55, 1);
   } else if (genome.body === "drone") {
     stamp(grid, size, size, cx, cy + bob, genome.coreR * 0.8, 1);
     stamp(grid, size, size, cx - genome.coreR - 1, cy + bob, 1.4, 1);

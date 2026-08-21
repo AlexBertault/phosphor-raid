@@ -15,7 +15,8 @@ import * as sfx from "./audio.js";
 
 const VIEW_W = 320;
 const VIEW_H = 180;
-const MELEE_REACH = 30;
+const MELEE_REACH = 32;
+const SPIN_LIFE = 0.4;
 const BEST_KEY = "phosphor-best";
 const SHOP = [
   { id: "dual", name: "DUAL WIELD", desc: "two barrels", cost: 22, once: true },
@@ -27,6 +28,17 @@ const SHOP = [
 const BODIES = ["orb", "skitter", "grub", "tank", "drone"];
 const AIS = ["chase", "strafe", "orbit", "ambush"];
 const WEAPONS = ["bite", "spit", "spread"];
+const BOSS_PAL = [
+  ["#ff4d1a", "#7a1808", "#ffc857", "#fff3e0"],
+  ["#ff7d4d", "#5a1208", "#ffd0be", "#5ce1ff"],
+  ["#ffc857", "#8a2a10", "#fff3e0", "#ff4d9a"],
+  ["#ff2d6a", "#6a1020", "#ffb3d4", "#ffc857"],
+];
+
+function bossTier(floor) {
+  if (floor < 5 || floor % 5 !== 0) return 0;
+  return (floor / 5) | 0;
+}
 
 function tune(floor) {
   const t = Math.max(0, floor - 1);
@@ -48,7 +60,7 @@ function tune(floor) {
     playerSpeed: 124,
     dashSpeed: 210,
     fireRate: 0.1,
-    meleeCd: 0.38,
+    meleeCd: 0.42,
     reload: 2,
     mag: 3,
     musicStep: Math.max(0.085, 0.2 - t * 0.012),
@@ -77,21 +89,45 @@ function genome(rng, p) {
   };
 }
 
-function makeEnemy(rng, x, y, p) {
-  const g = genome(rng, p);
+function bossGenome(rng, p) {
+  const tier = Math.max(1, bossTier(p.floor ?? 5));
+  const sizePx = Math.min(56, 34 + tier * 6);
+  return {
+    body: "brute",
+    boss: true,
+    palette: rng.pick(BOSS_PAL),
+    eyes: Math.min(5, 2 + (tier >> 1)),
+    spikes: 6 + tier * 2,
+    snout: true,
+    limbs: 6,
+    coreR: sizePx * 0.36,
+    sizePx,
+    ai: tier >= 3 ? "strafe" : "chase",
+    weapon: "flame",
+    hp: 8 + tier * 7,
+    speed: 11 + tier * 1.4,
+    damage: 2,
+    flameR: 6 + tier * 2,
+    flameN: Math.min(5, tier),
+    flameSpeed: Math.min(38, 16 + tier * 3),
+  };
+}
+
+function makeEnemy(rng, x, y, p, boss = false) {
+  const g = boss ? bossGenome(rng, p) : genome(rng, p);
   return {
     x,
     y,
-    r: g.sizePx * 0.32,
+    r: g.sizePx * (g.boss ? 0.36 : 0.32),
     hp: g.hp,
     maxHp: g.hp,
     gene: g,
     frames: [creatureSprite(rng, g, 0), creatureSprite(rng, g, 1)],
     t: rng.float(0, 10),
-    shootT: rng.float(0.6, 1.8),
+    shootT: boss ? rng.float(0.8, 1.4) : rng.float(0.6, 1.8),
     alive: true,
     flash: 0,
-    aggro: false,
+    aggro: !!boss,
   };
 }
 
@@ -102,8 +138,34 @@ function spawnFloor(seed, floor) {
   const map = generateDungeon(rng.int(1, 1e9), p);
   const tiles = tileSheet(createRng(seed + 17));
   const enemies = [];
+  const tier = bossTier(floor);
+  let bossRoom = null;
+  if (tier > 0) {
+    let area = 0;
+    for (const room of map.rooms) {
+      if (room === map.rooms[0]) continue;
+      const a = room.w * room.h;
+      if (a > area) {
+        area = a;
+        bossRoom = room;
+      }
+    }
+  }
   for (const room of map.rooms) {
     if (room === map.rooms[0]) continue;
+    if (room === bossRoom) {
+      const x = (room.cx + 0.5) * TILE;
+      const y = (room.cy + 0.5) * TILE;
+      if (!circleHitsSolid(map, x, y, 10)) enemies.push(makeEnemy(rng, x, y, p, true));
+      const adds = Math.max(0, tier - 1);
+      for (let i = 0; i < adds; i++) {
+        const ax = (rng.float(room.x + 1.4, room.x + room.w - 1.4) + 0.5) * TILE;
+        const ay = (rng.float(room.y + 1.4, room.y + room.h - 1.4) + 0.5) * TILE;
+        if (circleHitsSolid(map, ax, ay, 6)) continue;
+        enemies.push(makeEnemy(rng, ax, ay, p));
+      }
+      continue;
+    }
     if (rng.chance(p.skipChance)) continue;
     const n = rng.int(1, p.maxPerRoom);
     for (let i = 0; i < n; i++) {
@@ -158,8 +220,7 @@ export function createGame(canvas, ui) {
   let shake = 0;
   let over = false;
   let wonFloor = false;
-  let atGate = false;
-  let skipHint = false;
+  let shopping = false;
   let toastT = 0;
   let fireT = 0;
   let dashT = 0;
@@ -203,8 +264,7 @@ export function createGame(canvas, ui) {
     cam.y = player.y - VIEW_H / 2;
     over = false;
     wonFloor = false;
-    atGate = false;
-    skipHint = false;
+    shopping = false;
     fireT = 0;
     dashT = 0;
     dashCd = 0;
@@ -215,7 +275,13 @@ export function createGame(canvas, ui) {
     emptyT = 0;
     slash = null;
     hideShop();
-    toast(newRun ? "DEPTH 1 · GO DEEP" : "DEPTH " + floor + " · HEAT UP");
+    toast(
+      newRun
+        ? "DEPTH 1 · GO DEEP"
+        : bossTier(floor)
+          ? "DEPTH " + floor + " · BOSS GENOME"
+          : "DEPTH " + floor + " · HEAT UP",
+    );
     if (ui.seed) ui.seed.textContent = "SEED " + seed.toString(16).toUpperCase();
     renderDepth();
     renderHp();
@@ -294,9 +360,9 @@ export function createGame(canvas, ui) {
 
   function syncVitals() {
     if (!player) return;
-    const empty = !over && mag <= 0 && reloadT <= 0;
+    const empty = !over && !shopping && mag <= 0 && reloadT <= 0;
     const hp = player.hp;
-    const low = !over && hp > 0 && (hp <= 2 || hp / player.maxHp <= 0.34);
+    const low = !over && !shopping && hp > 0 && (hp <= 2 || hp / player.maxHp <= 0.34);
     if (ui.loadout) ui.loadout.classList.toggle("dry", empty);
     if (ui.emptyCue) ui.emptyCue.classList.toggle("hidden", !empty);
     if (ui.blood) {
@@ -306,11 +372,12 @@ export function createGame(canvas, ui) {
   }
 
   function hideShop() {
+    shopping = false;
     if (ui.shop) ui.shop.classList.add("hidden");
   }
 
   function shopReady() {
-    return !over && (wonFloor || atGate);
+    return shopping && !over;
   }
 
   function owned(id) {
@@ -357,8 +424,16 @@ export function createGame(canvas, ui) {
   function renderShop() {
     if (!ui.shop || !ui.shopList) return;
     if (!shopReady() || over) {
-      hideShop();
+      if (ui.shop) ui.shop.classList.add("hidden");
       return;
+    }
+    if (ui.shopEyebrow) {
+      ui.shopEyebrow.textContent = wonFloor ? "DEPTH " + floor + " CLEAR" : "DEPTH " + floor + " SKIP";
+    }
+    if (ui.shopBlurb) {
+      ui.shopBlurb.textContent = wonFloor
+        ? "Nice. HP carries. Spend coins here, then drop into a meaner crypt."
+        : "Skipped leftover packs — their coins stay behind. Stock up or press on.";
     }
     ui.shop.classList.remove("hidden");
     renderCoins();
@@ -379,6 +454,47 @@ export function createGame(canvas, ui) {
     });
   }
 
+  function openArmory() {
+    if (shopping || over) return;
+    shopping = true;
+    keys.clear();
+    sfx.sfxPortal();
+    renderShop();
+  }
+
+  function leaveShop() {
+    if (!shopping) return;
+    shopping = false;
+    if (ui.shop) ui.shop.classList.add("hidden");
+    nextFloor();
+  }
+
+  function tickShop() {
+    if (keys.has("Digit1")) {
+      keys.delete("Digit1");
+      buy("dual");
+    }
+    if (keys.has("Digit2")) {
+      keys.delete("Digit2");
+      buy("mg");
+    }
+    if (keys.has("Digit3")) {
+      keys.delete("Digit3");
+      buy("reload");
+    }
+    if (keys.has("Digit4")) {
+      keys.delete("Digit4");
+      buy("heart");
+    }
+    if (keys.has("Enter") || keys.has("enter") || keys.has("NumpadEnter") || keys.has("Space")) {
+      keys.delete("Enter");
+      keys.delete("enter");
+      keys.delete("NumpadEnter");
+      keys.delete("Space");
+      leaveShop();
+    }
+  }
+
   function hitEnemy(e, dmg) {
     if (!e || !e.alive) return;
     e.hp -= dmg;
@@ -392,7 +508,7 @@ export function createGame(canvas, ui) {
       renderKills();
       sfx.sfxDie();
       burst(e.x, e.y, e.gene.palette[3], 18);
-      spawnCoins(e.x, e.y, floor + (Math.random() < 0.35 ? floor : 0));
+      spawnCoins(e.x, e.y, (e.gene.boss ? floor * 3 : floor) + (Math.random() < 0.35 ? floor : 0));
       if (Math.random() < 0.1) spawnPickup(e.x, e.y);
     }
   }
@@ -428,6 +544,7 @@ export function createGame(canvas, ui) {
     if (player.hp <= 0) {
       player.hp = 0;
       over = true;
+      shopping = false;
       hideShop();
       sfx.sfxDie();
       const prev = readBest();
@@ -465,17 +582,20 @@ export function createGame(canvas, ui) {
     });
   }
 
-  function shoot(from, ang, speed, hostile, spread = 0, dmg = 1) {
+  function shoot(from, ang, speed, hostile, spread = 0, dmg = 1, extra = {}) {
     const a = ang + spread;
     const list = hostile ? eBullets : bullets;
+    const r = extra.r || 2;
     list.push({
-      x: from.x + Math.cos(a) * (from.r + 3),
-      y: from.y + Math.sin(a) * (from.r + 3),
+      x: from.x + Math.cos(a) * (from.r + 3 + (extra.flame ? 6 : 0)),
+      y: from.y + Math.sin(a) * (from.r + 3 + (extra.flame ? 6 : 0)),
       vx: Math.cos(a) * speed,
       vy: Math.sin(a) * speed,
-      life: hostile ? 5.2 : 0.55,
+      life: extra.flame ? 6.4 : hostile ? 5.2 : 0.55,
       hostile,
       dmg,
+      r,
+      flame: !!extra.flame,
     });
   }
 
@@ -507,9 +627,10 @@ export function createGame(canvas, ui) {
 
   function swingMelee() {
     meleeT = world.p.meleeCd;
-    slash = { life: 0.22 };
+    slash = { life: SPIN_LIFE, max: SPIN_LIFE };
     sfx.sfxMelee();
-    burst(player.x, player.y, C.amber, 14);
+    burst(player.x, player.y, C.player, 10);
+    burst(player.x, player.y, C.amber, 8);
     for (const e of world.enemies) {
       if (!e.alive) continue;
       const d = Math.hypot(e.x - player.x, e.y - player.y);
@@ -518,7 +639,7 @@ export function createGame(canvas, ui) {
     }
     for (let i = eBullets.length - 1; i >= 0; i--) {
       const b = eBullets[i];
-      if (Math.hypot(b.x - player.x, b.y - player.y) <= MELEE_REACH + 4) {
+      if (Math.hypot(b.x - player.x, b.y - player.y) <= MELEE_REACH + (b.r || 4)) {
         burst(b.x, b.y, C.hp, 4);
         eBullets.splice(i, 1);
       }
@@ -548,6 +669,11 @@ export function createGame(canvas, ui) {
       if (toastT <= 0) ui.toast.textContent = "";
     }
     if (over || !player) {
+      syncVitals();
+      return;
+    }
+    if (shopping) {
+      tickShop();
       syncVitals();
       return;
     }
@@ -590,23 +716,6 @@ export function createGame(canvas, ui) {
     moveCircle(world.map, player, move.x * speed * dt, move.y * speed * dt);
     if (tileAt(world.map, player.x, player.y) === T.GOO && dashT <= 0) {
       moveCircle(world.map, player, move.x * -speed * 0.25 * dt, move.y * -speed * 0.25 * dt);
-    }
-
-    if (keys.has("Digit1")) {
-      keys.delete("Digit1");
-      buy("dual");
-    }
-    if (keys.has("Digit2")) {
-      keys.delete("Digit2");
-      buy("mg");
-    }
-    if (keys.has("Digit3")) {
-      keys.delete("Digit3");
-      buy("reload");
-    }
-    if (keys.has("Digit4")) {
-      keys.delete("Digit4");
-      buy("heart");
     }
 
     if (keys.has("KeyQ") || keys.has("q") || keys.has("KeyF") || keys.has("f")) {
@@ -698,7 +807,18 @@ export function createGame(canvas, ui) {
       moveCircle(world.map, e, mx * sp * dt, my * sp * dt);
 
       e.shootT -= dt;
-      if (g.weapon !== "bite" && e.shootT <= 0 && dist < world.p.shootRange) {
+      if (g.weapon === "flame" && e.shootT <= 0 && dist < world.p.shootRange + 50) {
+        e.shootT = Math.max(1.05, 2.5 - (g.flameN || 1) * 0.12);
+        sfx.sfxFlame();
+        shake = Math.max(shake, 3);
+        const ang = Math.atan2(dy, dx) + (Math.random() * 2 - 1) * 0.12;
+        const n = g.flameN || 1;
+        const fan = n <= 1 ? 0 : 0.32;
+        for (let i = 0; i < n; i++) {
+          const off = n <= 1 ? 0 : (i - (n - 1) / 2) * fan;
+          shoot(e, ang, g.flameSpeed, true, off, g.damage, { flame: true, r: g.flameR });
+        }
+      } else if (g.weapon !== "bite" && g.weapon !== "flame" && e.shootT <= 0 && dist < world.p.shootRange) {
         e.shootT = g.weapon === "spread" ? Math.max(1.1, 2.1 - (floor - 1) * 0.08) : Math.max(0.9, 1.7 - (floor - 1) * 0.07);
         const miss = Math.min(1, Math.max(0, (dist - 28) / 120));
         const drift = (Math.random() * 2 - 1) * (0.08 + miss * 1.05);
@@ -759,24 +879,14 @@ export function createGame(canvas, ui) {
     }
 
     const gateDist = Math.hypot(player.x - world.map.portal.x, player.y - world.map.portal.y);
-    atGate = gateDist < 52;
 
     if (world.enemies.length === 0 && !wonFloor) {
       wonFloor = true;
-      toast("CLEARED · ARMORY OPEN");
-    }
-    if (!wonFloor && atGate && !skipHint) {
-      skipHint = true;
-      toast("GATE · SKIP KILLS, SKIP THEIR COINS");
-    }
-    if (shopReady()) {
-      if (ui.shop && ui.shop.classList.contains("hidden")) renderShop();
-    } else {
-      hideShop();
+      toast("CLEARED · GATE OPEN");
     }
 
     if (gateDist < 12) {
-      nextFloor();
+      openArmory();
       return;
     }
 
@@ -793,7 +903,7 @@ export function createGame(canvas, ui) {
       b.life -= dt;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
-      const hit = circleHitsSolid(world.map, b.x, b.y, 1.5);
+      const hit = circleHitsSolid(world.map, b.x, b.y, b.r || 1.5);
       if (hit) {
         if (hit.kind === T.CRATE && breakCrate(world.map, hit.c, hit.r)) {
           sfx.sfxCrate();
@@ -801,16 +911,29 @@ export function createGame(canvas, ui) {
           if (Math.random() < 0.45) spawnCoins((hit.c + 0.5) * TILE, (hit.r + 0.5) * TILE, Math.max(1, floor));
           if (Math.random() < 0.28) spawnPickup((hit.c + 0.5) * TILE, (hit.r + 0.5) * TILE);
         }
+        if (b.flame) burst(b.x, b.y, C.flame, 8);
         list.splice(i, 1);
         continue;
+      }
+      if (b.flame && particles.length < 140 && Math.random() < 0.45) {
+        particles.push({
+          x: b.x + (Math.random() - 0.5) * 6,
+          y: b.y + (Math.random() - 0.5) * 6,
+          vx: (Math.random() - 0.5) * 12,
+          vy: (Math.random() - 0.5) * 12,
+          life: 0.18,
+          color: Math.random() < 0.5 ? C.flame : C.flameHi,
+          s: 2 + (Math.random() * 2) | 0,
+        });
       }
       if (b.life <= 0) {
         list.splice(i, 1);
         continue;
       }
       if (hostile) {
-        if (Math.hypot(b.x - player.x, b.y - player.y) < player.r + 3) {
+        if (Math.hypot(b.x - player.x, b.y - player.y) < player.r + (b.r || 3)) {
           hurtPlayer(b.dmg);
+          if (b.flame) burst(b.x, b.y, C.flameHi, 10);
           list.splice(i, 1);
         }
       } else {
@@ -827,12 +950,10 @@ export function createGame(canvas, ui) {
   }
 
   function nextFloor() {
-    sfx.sfxPortal();
     writeBest(floor);
     floor += 1;
     world = spawnFloor(seed, floor);
     landOnFloor({ newRun: false });
-    hideShop();
   }
 
   function restart() {
@@ -843,6 +964,44 @@ export function createGame(canvas, ui) {
     landOnFloor({ newRun: true });
     ui.hideOverlay();
     over = false;
+  }
+
+  function drawSpinjitzu(ox, oy) {
+    const t = 1 - slash.life / (slash.max || SPIN_LIFE);
+    const spin = t * Math.PI * 8;
+    const px = (player.x - ox) | 0;
+    const py = (player.y - oy) | 0;
+    const cols = [C.player, C.player2, C.amber, "#ffffff", C.portal];
+    for (let i = 0; i < 52; i++) {
+      const u = i / 52;
+      const a = spin + u * Math.PI * 5;
+      const d = 3 + u * 18;
+      bctx.fillStyle = cols[i % cols.length];
+      bctx.fillRect((px + Math.cos(a) * d) | 0, (py + Math.sin(a) * d * 0.72) | 0, 2, 2);
+    }
+    for (let i = 0; i < 18; i++) {
+      const a = spin * 1.15 + (i / 18) * Math.PI * 2;
+      const d = 7 + (i % 3);
+      bctx.fillStyle = i % 2 ? C.player : C.amber;
+      bctx.fillRect((px + Math.cos(a) * d) | 0, (py + Math.sin(a) * d * 0.7) | 0, 2, 2);
+    }
+    const blade = spin * 1.35;
+    const oxn = Math.cos(blade);
+    const oyn = Math.sin(blade);
+    const pxn = Math.cos(blade + Math.PI / 2);
+    const pyn = Math.sin(blade + Math.PI / 2);
+    for (let d = 5; d <= 22; d++) {
+      const x = (px + oxn * d) | 0;
+      const y = (py + oyn * d) | 0;
+      bctx.fillStyle = d < 8 ? "#6a4a28" : C.steel;
+      bctx.fillRect(x, y, 2, 2);
+      bctx.fillStyle = d < 8 ? C.amber : C.steelHi;
+      bctx.fillRect((px + oxn * d + pxn) | 0, (py + oyn * d + pyn) | 0, 1, 1);
+    }
+    bctx.fillStyle = C.amber;
+    bctx.fillRect((px + oxn * 6) | 0, (py + oyn * 6) | 0, 3, 3);
+    bctx.fillStyle = C.player2;
+    bctx.fillRect(px - 1, py - 1, 3, 3);
   }
 
   function draw() {
@@ -920,40 +1079,43 @@ export function createGame(canvas, ui) {
       bctx.fillRect((b.x - ox) | 0, (b.y - oy) | 0, 2, 2);
     }
     for (const b of eBullets) {
-      bctx.fillStyle = C.hp;
-      bctx.fillRect((b.x - ox - 2) | 0, (b.y - oy - 2) | 0, 5, 5);
-      bctx.fillStyle = C.amber;
-      bctx.fillRect((b.x - ox) | 0, (b.y - oy) | 0, 2, 2);
+      if (b.flame) {
+        const s = Math.max(8, (b.r * 2) | 0);
+        const x = (b.x - ox - s / 2) | 0;
+        const y = (b.y - oy - s / 2) | 0;
+        bctx.fillStyle = C.flameLo;
+        bctx.fillRect(x, y, s, s);
+        bctx.fillStyle = C.flame;
+        bctx.fillRect(x + 2, y + 2, s - 4, s - 4);
+        bctx.fillStyle = C.flameHi;
+        bctx.fillRect(x + 4, y + 4, Math.max(2, s - 8), Math.max(2, s - 8));
+        if (((time * 14) | 0) % 2 === 0) {
+          bctx.fillStyle = C.flameCore;
+          bctx.fillRect(x + (s >> 1) - 1, y + (s >> 1) - 1, 3, 3);
+        }
+      } else {
+        bctx.fillStyle = C.hp;
+        bctx.fillRect((b.x - ox - 2) | 0, (b.y - oy - 2) | 0, 5, 5);
+        bctx.fillStyle = C.amber;
+        bctx.fillRect((b.x - ox) | 0, (b.y - oy) | 0, 2, 2);
+      }
     }
 
-    if (!over && (invuln <= 0 || ((time * 20) | 0) % 2 === 0)) {
-      const pf = playerFrames[((time * 8) | 0) & 1];
-      bctx.save();
-      bctx.translate((player.x - ox) | 0, (player.y - oy) | 0);
-      bctx.rotate(player.ang);
-      bctx.drawImage(pf, -8, -8);
-      bctx.restore();
-      if (slash) {
-        const t = 1 - slash.life / 0.22;
-        const reach = 10 + t * 20;
+    if (!over && (invuln <= 0 || slash || ((time * 20) | 0) % 2 === 0)) {
+      if (slash) drawSpinjitzu(ox, oy);
+      else {
+        const pf = playerFrames[((time * 8) | 0) & 1];
         bctx.save();
         bctx.translate((player.x - ox) | 0, (player.y - oy) | 0);
-        for (let ring = 0; ring < 3; ring++) {
-          const d = reach - ring * 4;
-          const n = 22 + ring * 4;
-          bctx.fillStyle = ring === 0 ? C.amber : ring === 1 ? "#fff3a0" : C.player;
-          for (let i = 0; i < n; i++) {
-            const a = (i / n) * Math.PI * 2 + t * 2.4;
-            bctx.fillRect((Math.cos(a) * d) | 0, (Math.sin(a) * d) | 0, 3, 3);
-          }
-        }
+        bctx.rotate(player.ang);
+        bctx.drawImage(pf, -8, -8);
         bctx.restore();
       }
     }
 
     drawMinimap();
 
-    if (!over && player) {
+    if (!over && player && !shopping) {
       if (mag <= 0 && reloadT <= 0) {
         const flash = ((time * 8) | 0) % 2 === 0;
         bctx.fillStyle = flash ? "rgba(255,45,106,0.16)" : "rgba(255,45,106,0.06)";
@@ -995,7 +1157,9 @@ export function createGame(canvas, ui) {
     }
     bctx.fillStyle = C.hp;
     for (const e of world.enemies) {
-      bctx.fillRect(x0 + (e.x / TILE) * sx, y0 + (e.y / TILE) * sy, 1, 1);
+      const s = e.gene.boss ? 3 : 1;
+      bctx.fillStyle = e.gene.boss ? C.flame : C.hp;
+      bctx.fillRect(x0 + (e.x / TILE) * sx, y0 + (e.y / TILE) * sy, s, s);
     }
     bctx.fillStyle = C.player;
     bctx.fillRect(x0 + (player.x / TILE) * sx, y0 + (player.y / TILE) * sy, 2, 2);
@@ -1025,6 +1189,7 @@ export function createGame(canvas, ui) {
 
   window.addEventListener("resize", layout);
   layout();
+  if (ui.descend) ui.descend.addEventListener("click", leaveShop);
 
   return { start, restart };
 }

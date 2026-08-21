@@ -68,6 +68,12 @@ function noise(dur, gain = 0.04, cutoff = 1200, delay = 0) {
   src.stop(t0 + dur + 0.02);
 }
 
+export function sfxFlame() {
+  noise(0.18, 0.07, 280);
+  tone(90, 0.22, "sawtooth", 0.05, -40);
+  tone(48, 0.28, "square", 0.04, -18);
+}
+
 export function sfxShoot(machine = false) {
   if (machine) {
     noise(0.03, 0.045, 1800);
@@ -151,9 +157,9 @@ export function sfxEmpty() {
 }
 
 export function sfxMelee() {
-  noise(0.1, 0.05, 700);
-  tone(160, 0.1, "sawtooth", 0.05, -90);
-  tone(70, 0.14, "square", 0.035, -30);
+  noise(0.16, 0.045, 900);
+  tone(220, 0.18, "square", 0.04, 180);
+  tone(90, 0.2, "sawtooth", 0.03, 80);
 }
 
 export function sfxSwap() {

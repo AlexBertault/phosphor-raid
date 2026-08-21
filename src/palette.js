@@ -20,6 +20,12 @@ export const C = {
   hp: "#ff4d9a",
   amber: "#ffc857",
   bullet: "#e8ffe9",
+  flameLo: "#5a1208",
+  flame: "#ff4d1a",
+  flameHi: "#ffc857",
+  flameCore: "#fff3e0",
+  steel: "#d8dde8",
+  steelHi: "#f4f7ff",
 };
 
 export const GENE_PALETTES = [
