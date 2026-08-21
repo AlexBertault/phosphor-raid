@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PHOSPHOR RAID</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0b14'/><rect x='3' y='4' width='10' height='8' fill='%237dff9a'/><rect x='5' y='6' width='6' height='3' fill='%230b0b14'/></svg>" />
+  </head>
+  <body>
+    <div id="frame">
+      <canvas id="game"></canvas>
+      <div id="scanlines"></div>
+      <div id="vignette"></div>
+      <div id="hud" class="hidden">
+        <div id="left">
+          <div id="hp"></div>
+          <div id="loadout">
+            <span id="weapon">GUN</span>
+            <div id="ammo"></div>
+          </div>
+        </div>
+        <div id="meta">
+          <span id="floor">DEPTH 1</span>
+          <span id="best">BEST 0</span>
+          <span id="kills">0 KILLS</span>
+          <span id="seed"></span>
+        </div>
+      </div>
+      <div id="toast"></div>
+      <div id="overlay">
+        <div class="panel">
+          <p class="eyebrow">32-BIT DUNGEON PROTOCOL</p>
+          <h1>PHOSPHOR<br />RAID</h1>
+          <p class="blurb">
+            Every raid is a depth run. Early floors are tiny and fast.
+            Then the crypt grows, genomes get meaner, and you chase a new best.
+          </p>
+          <button id="start" type="button">INSERT COIN</button>
+          <p class="controls">
+            WASD move · SPACE fire/swipe · R reload · F gun/blade · SHIFT dash
+          </p>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
