@@ -270,6 +270,7 @@ export function createGame(canvas, ui) {
     particles = [];
     cam.x = player.x - VIEW_W / 2;
     cam.y = player.y - VIEW_H / 2;
+    clampCam();
     over = false;
     wonFloor = false;
     shopping = false;
@@ -906,7 +907,16 @@ export function createGame(canvas, ui) {
     const ty = player.y - VIEW_H / 2;
     cam.x += (tx - cam.x) * Math.min(1, dt * 12);
     cam.y += (ty - cam.y) * Math.min(1, dt * 12);
+    clampCam();
     shake = Math.max(0, shake - dt * 18);
+  }
+
+  function clampCam() {
+    if (!world) return;
+    const maxX = Math.max(0, world.map.cols * TILE - VIEW_W);
+    const maxY = Math.max(0, world.map.rows * TILE - VIEW_H);
+    cam.x = Math.max(0, Math.min(maxX, cam.x));
+    cam.y = Math.max(0, Math.min(maxY, cam.y));
   }
 
   function stepBullets(list, dt, hostile) {
