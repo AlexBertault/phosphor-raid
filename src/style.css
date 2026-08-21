@@ -68,11 +68,11 @@ body {
 }
 
 #frame[data-biome="grass"] {
-  background: #1a1814;
+  background: #141210;
 }
 
 #frame[data-biome="grass"] #game {
-  background: #1a1814;
+  background: #141210;
 }
 
 #frame[data-biome="cave"] {

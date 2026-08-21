@@ -263,13 +263,13 @@ export function tileSheet(rng, theme = C) {
     for (let y = 0; y < 16; y++) {
       for (let x = 0; x < 16; x++) {
         if (nxy(x, y, 19) > 0.975) px(floor.ctx, x, y, pebble);
-        if (nxy(x, y, 23) > 0.988) px(floor.ctx, x, y, "#d4c45a");
+        if (nxy(x, y, 23) > 0.988) px(floor.ctx, x, y, "#8a7a30");
       }
     }
     fillMottle(wall.ctx, pebble, wallC, wallLo, 31);
     stampWrap(wall.ctx, 5, 6, 3.2, 2.6, wallHi);
     stampWrap(wall.ctx, 12, 11, 2.8, 2.4, wallC);
-    fillMottle(wild.ctx, "#5a3e28", "#4a3220", "#3a2818", 41);
+    fillMottle(wild.ctx, "#3a2818", "#2a1c10", "#1e140c", 41);
   } else if (biome === "lava") {
     fillMottle(floor.ctx, fa, fb, fc, 51);
     for (let i = 0; i < 5; i++) {
