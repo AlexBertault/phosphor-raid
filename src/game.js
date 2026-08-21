@@ -44,6 +44,25 @@ function bossTier(floor) {
   return (floor / 5) | 0;
 }
 
+function rayHit(px, py, ox, oy, ang) {
+  const cx = Math.cos(ang);
+  const cy = Math.sin(ang);
+  const along = (px - ox) * cx + (py - oy) * cy;
+  const qx = ox + cx * along;
+  const qy = oy + cy * along;
+  return { along, dist: Math.hypot(px - qx, py - qy) };
+}
+
+function beamReach(map, x, y, ang, maxLen = 240) {
+  const cx = Math.cos(ang);
+  const cy = Math.sin(ang);
+  for (let d = 8; d < maxLen; d += 2) {
+    const kind = tileAt(map, x + cx * d, y + cy * d);
+    if (kind === T.WALL || kind === T.VOID || kind === T.CRATE) return d;
+  }
+  return maxLen;
+}
+
 function tune(floor) {
   const t = Math.max(0, floor - 1);
   const biome = biomeOf(floor);
@@ -54,7 +73,8 @@ function tune(floor) {
     splits: biome === "grass" ? 2 : Math.min(26, 3 + t * 3),
     loops: biome === "grass" ? 1 : Math.min(7, 1 + (t >> 1)),
     crateMax: biome === "grass" ? 1 : Math.min(4, t < 2 ? 0 : 1 + ((t / 3) | 0)),
-    gooChance: biome === "grass" ? 0.22 : Math.min(0.5, t < 2 ? 0.04 : 0.14 + t * 0.04),
+    gooChance: biome === "grass" ? 0.22 : biome === "lava" ? 0.08 : Math.min(0.5, t < 2 ? 0.04 : 0.14 + t * 0.04),
+    lavaChance: biome === "lava" ? 0.85 : 0,
     skipChance: biome === "grass" ? 0.15 : Math.max(0, 0.4 - t * 0.07),
     maxPerRoom: biome === "grass" ? 1 : Math.min(5, 1 + ((t / 2) | 0)),
     bodies: t < 2 ? ["orb", "grub", "drone"] : t < 4 ? ["orb", "grub", "skitter", "drone"] : BODIES,
@@ -74,8 +94,44 @@ function tune(floor) {
 }
 
 function genome(rng, p) {
-  const body = rng.pick(p.bodies);
   const t = Math.max(0, (p.floor ?? 1) - 1);
+  if (p.biome === "lava" && rng.chance(0.42)) {
+    const sizePx = rng.int(20, 26);
+    return {
+      body: "shock",
+      palette: pickPalette(rng, "lava"),
+      eyes: 1,
+      spikes: 8,
+      snout: false,
+      limbs: 6,
+      coreR: sizePx * 0.28,
+      sizePx,
+      ai: "orbit",
+      weapon: "shock",
+      hp: Math.max(2, 2 + ((t / 4) | 0)),
+      speed: 14 + t * 0.45,
+      damage: 1,
+    };
+  }
+  if (p.biome === "gem" && rng.chance(0.4)) {
+    const sizePx = rng.int(16, 20);
+    return {
+      body: "laser",
+      palette: pickPalette(rng, "gem"),
+      eyes: 1,
+      spikes: 0,
+      snout: true,
+      limbs: 2,
+      coreR: sizePx * 0.24,
+      sizePx,
+      ai: "ambush",
+      weapon: "laser",
+      hp: Math.max(2, 2 + ((t / 5) | 0)),
+      speed: 8,
+      damage: 3,
+    };
+  }
+  const body = rng.pick(p.bodies);
   const sizePx = body === "tank" ? rng.int(18, 24) : body === "drone" ? rng.int(12, 16) : rng.int(14, 18);
   const shooty = rng.chance(p.shootChance);
   return {
@@ -134,6 +190,13 @@ function makeEnemy(rng, x, y, p, boss = false) {
     alive: true,
     flash: 0,
     aggro: !!boss,
+    shockPhase: "idle",
+    windT: 0,
+    boomT: 0,
+    laserPhase: "idle",
+    laserT: 0,
+    beamAng: 0,
+    laserHit: false,
   };
 }
 
@@ -170,6 +233,7 @@ function spawnFloor(seed, floor) {
         const ax = (rng.float(room.x + 1.4, room.x + room.w - 1.4) + 0.5) * TILE;
         const ay = (rng.float(room.y + 1.4, room.y + room.h - 1.4) + 0.5) * TILE;
         if (circleHitsSolid(map, ax, ay, 6)) continue;
+        if (tileAt(map, ax, ay) === T.LAVA) continue;
         enemies.push(makeEnemy(rng, ax, ay, p));
       }
       continue;
@@ -180,6 +244,7 @@ function spawnFloor(seed, floor) {
       const x = (rng.float(room.x + 1.2, room.x + room.w - 1.2) + 0.5) * TILE;
       const y = (rng.float(room.y + 1.2, room.y + room.h - 1.2) + 0.5) * TILE;
       if (circleHitsSolid(map, x, y, 6)) continue;
+      if (tileAt(map, x, y) === T.LAVA) continue;
       enemies.push(makeEnemy(rng, x, y, p));
     }
   }
@@ -238,6 +303,7 @@ export function createGame(canvas, ui) {
   let reloadT = 0;
   let meleeT = 0;
   let emptyT = 0;
+  let lavaT = 0;
   let slash = null;
   let coins = 0;
   let kit = { dual: false, mg: false, reload: false, hearts: 0 };
@@ -255,6 +321,8 @@ export function createGame(canvas, ui) {
         maxHp: 6,
         vx: 0,
         vy: 0,
+        kx: 0,
+        ky: 0,
         ang: 0,
         moveAng: 0,
       };
@@ -263,6 +331,8 @@ export function createGame(canvas, ui) {
     } else {
       player.x = world.map.start.x;
       player.y = world.map.start.y;
+      player.kx = 0;
+      player.ky = 0;
       player.hp = Math.min(player.maxHp, player.hp + 1);
     }
     bullets = [];
@@ -282,6 +352,7 @@ export function createGame(canvas, ui) {
     reloadT = 0;
     meleeT = 0;
     emptyT = 0;
+    lavaT = 0;
     slash = null;
     hideShop();
     const place = biomeName(floor);
@@ -727,8 +798,28 @@ export function createGame(canvas, ui) {
 
     const speed = dashT > 0 ? world.p.dashSpeed : world.p.playerSpeed;
     moveCircle(world.map, player, move.x * speed * dt, move.y * speed * dt);
-    if (tileAt(world.map, player.x, player.y) === T.GOO && dashT <= 0) {
+    if (player.kx || player.ky) {
+      moveCircle(world.map, player, player.kx * dt, player.ky * dt);
+      player.kx *= Math.exp(-7 * dt);
+      player.ky *= Math.exp(-7 * dt);
+      if (Math.abs(player.kx) < 4) player.kx = 0;
+      if (Math.abs(player.ky) < 4) player.ky = 0;
+    }
+    const onGoo = tileAt(world.map, player.x, player.y) === T.GOO;
+    const onLava = tileAt(world.map, player.x, player.y) === T.LAVA;
+    if (onGoo && dashT <= 0) {
       moveCircle(world.map, player, move.x * -speed * 0.25 * dt, move.y * -speed * 0.25 * dt);
+    }
+    lavaT = Math.max(0, lavaT - dt);
+    if (onLava && dashT <= 0) {
+      moveCircle(world.map, player, move.x * -speed * 0.35 * dt, move.y * -speed * 0.35 * dt);
+      if (lavaT <= 0) {
+        lavaT = 0.52;
+        hurtPlayer(1);
+        sfx.sfxBurn();
+        burst(player.x, player.y, C.flame, 10);
+        burst(player.x, player.y, C.flameHi, 6);
+      }
     }
 
     if (keys.has("KeyQ") || keys.has("q") || keys.has("KeyF") || keys.has("f")) {
@@ -788,12 +879,14 @@ export function createGame(canvas, ui) {
       const dx = player.x - e.x;
       const dy = player.y - e.y;
       const dist = Math.hypot(dx, dy) || 1;
+      const g = e.gene;
       if (dist < world.p.aggro) e.aggro = true;
+      if (g.weapon === "laser" && dist < 168) e.aggro = true;
+      if (g.weapon === "shock" && dist < 96) e.aggro = true;
       if (!e.aggro) {
         alive.push(e);
         continue;
       }
-      const g = e.gene;
       let mx = dx / dist;
       let my = dy / dist;
       if (g.ai === "strafe") {
@@ -817,32 +910,112 @@ export function createGame(canvas, ui) {
         }
       }
       const sp = g.speed * (g.body === "skitter" ? 1 + 0.2 * Math.sin(e.t * 8) : 1);
-      moveCircle(world.map, e, mx * sp * dt, my * sp * dt);
-
-      e.shootT -= dt;
-      if (g.weapon === "flame" && e.shootT <= 0 && dist < world.p.shootRange + 50) {
-        e.shootT = Math.max(1.05, 2.5 - (g.flameN || 1) * 0.12);
-        sfx.sfxFlame();
-        shake = Math.max(shake, 3);
-        const ang = Math.atan2(dy, dx) + (Math.random() * 2 - 1) * 0.12;
-        const n = g.flameN || 1;
-        const fan = n <= 1 ? 0 : 0.32;
-        for (let i = 0; i < n; i++) {
-          const off = n <= 1 ? 0 : (i - (n - 1) / 2) * fan;
-          shoot(e, ang, g.flameSpeed, true, off, g.damage, { flame: true, r: g.flameR });
+      if (g.weapon === "shock") {
+        if (dist < 34) {
+          mx = -dx / dist;
+          my = -dy / dist;
         }
-      } else if (g.weapon !== "bite" && g.weapon !== "flame" && e.shootT <= 0 && dist < world.p.shootRange) {
-        e.shootT = g.weapon === "spread" ? Math.max(1.1, 2.1 - (floor - 1) * 0.08) : Math.max(0.9, 1.7 - (floor - 1) * 0.07);
-        const miss = Math.min(1, Math.max(0, (dist - 28) / 120));
-        const drift = (Math.random() * 2 - 1) * (0.08 + miss * 1.05);
-        const ang = Math.atan2(dy, dx) + drift;
-        const spd = world.p.bulletSpeed;
-        if (g.weapon === "spread") {
-          shoot(e, ang, spd, true, -0.22, g.damage);
-          shoot(e, ang, spd, true, 0, g.damage);
-          shoot(e, ang, spd, true, 0.22, g.damage);
-        } else {
-          shoot(e, ang, spd, true, 0, g.damage);
+        if (e.shockPhase === "wind") mx *= 0.15, my *= 0.15;
+      } else if (g.weapon === "laser") {
+        mx *= 0.2;
+        my *= 0.2;
+        if (e.laserPhase === "charge" || e.laserPhase === "fire") {
+          mx = 0;
+          my = 0;
+        }
+      }
+      moveCircle(world.map, e, mx * sp * dt, my * sp * dt);
+      if (e.boomT > 0) e.boomT = Math.max(0, e.boomT - dt);
+
+      if (g.weapon === "shock") {
+        if (e.shockPhase === "idle") {
+          e.shootT -= dt;
+          if (e.shootT <= 0 && dist < 72) {
+            e.shockPhase = "wind";
+            e.windT = 0.58;
+            sfx.sfxShockWind();
+          }
+        } else if (e.shockPhase === "wind") {
+          e.windT -= dt;
+          if (e.windT <= 0) {
+            e.shockPhase = "idle";
+            e.shootT = 1.65;
+            e.boomT = 0.3;
+            sfx.sfxShock();
+            shake = Math.max(shake, 7);
+            burst(e.x, e.y, C.flameHi, 14);
+            if (dist < 54) {
+              const k = 240 + (54 - dist) * 5;
+              player.kx = (dx / dist) * k;
+              player.ky = (dy / dist) * k;
+              if (dist < 32) hurtPlayer(g.damage);
+            }
+          }
+        }
+      } else if (g.weapon === "laser") {
+        if (e.laserPhase === "idle") {
+          e.shootT -= dt;
+          if (e.shootT <= 0 && dist < 168) {
+            e.laserPhase = "charge";
+            e.laserT = 0.95;
+            e.beamAng = Math.atan2(dy, dx);
+            e.laserHit = false;
+            sfx.sfxLaserCharge();
+          }
+        } else if (e.laserPhase === "charge") {
+          e.laserT -= dt;
+          if (e.laserT <= 0) {
+            e.laserPhase = "fire";
+            e.laserT = 0.4;
+            sfx.sfxLaserFire();
+            shake = Math.max(shake, 4);
+          }
+        } else if (e.laserPhase === "fire") {
+          e.laserT -= dt;
+          const reach = beamReach(world.map, e.x, e.y, e.beamAng);
+          const hit = rayHit(player.x, player.y, e.x, e.y, e.beamAng);
+          if (!e.laserHit && hit.along > 8 && hit.along < reach && hit.dist < 7) {
+            hurtPlayer(g.damage);
+            e.laserHit = true;
+            burst(player.x, player.y, "#ff4dff", 12);
+          }
+          if (e.laserT <= 0) {
+            e.laserPhase = "reload";
+            e.laserT = 2.2;
+          }
+        } else if (e.laserPhase === "reload") {
+          e.laserT -= dt;
+          if (e.laserT <= 0) {
+            e.laserPhase = "idle";
+            e.shootT = 0.4;
+          }
+        }
+      } else {
+        e.shootT -= dt;
+        if (g.weapon === "flame" && e.shootT <= 0 && dist < world.p.shootRange + 50) {
+          e.shootT = Math.max(1.05, 2.5 - (g.flameN || 1) * 0.12);
+          sfx.sfxFlame();
+          shake = Math.max(shake, 3);
+          const ang = Math.atan2(dy, dx) + (Math.random() * 2 - 1) * 0.12;
+          const n = g.flameN || 1;
+          const fan = n <= 1 ? 0 : 0.32;
+          for (let i = 0; i < n; i++) {
+            const off = n <= 1 ? 0 : (i - (n - 1) / 2) * fan;
+            shoot(e, ang, g.flameSpeed, true, off, g.damage, { flame: true, r: g.flameR });
+          }
+        } else if (g.weapon !== "bite" && g.weapon !== "flame" && e.shootT <= 0 && dist < world.p.shootRange) {
+          e.shootT = g.weapon === "spread" ? Math.max(1.1, 2.1 - (floor - 1) * 0.08) : Math.max(0.9, 1.7 - (floor - 1) * 0.07);
+          const miss = Math.min(1, Math.max(0, (dist - 28) / 120));
+          const drift = (Math.random() * 2 - 1) * (0.08 + miss * 1.05);
+          const ang = Math.atan2(dy, dx) + drift;
+          const spd = world.p.bulletSpeed;
+          if (g.weapon === "spread") {
+            shoot(e, ang, spd, true, -0.22, g.damage);
+            shoot(e, ang, spd, true, 0, g.damage);
+            shoot(e, ang, spd, true, 0.22, g.damage);
+          } else {
+            shoot(e, ang, spd, true, 0, g.damage);
+          }
         }
       }
 
@@ -988,6 +1161,67 @@ export function createGame(canvas, ui) {
     over = false;
   }
 
+  function drawShockRing(e, ox, oy) {
+    const cx = e.x - ox;
+    const cy = e.y - oy;
+    let rad = 0;
+    let col = C.flameHi;
+    if (e.shockPhase === "wind") {
+      const t = 1 - e.windT / 0.58;
+      rad = 8 + t * 36;
+      col = t > 0.7 ? C.flame : C.amber;
+    } else if (e.boomT > 0) {
+      const t = 1 - e.boomT / 0.3;
+      rad = 18 + t * 36;
+      col = t < 0.4 ? "#fff3e0" : C.flame;
+    } else {
+      return;
+    }
+    const n = Math.max(16, (rad * 5) | 0);
+    bctx.fillStyle = col;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      bctx.fillRect((cx + Math.cos(a) * rad) | 0, (cy + Math.sin(a) * rad) | 0, 2, 2);
+    }
+  }
+
+  function drawLaserBeam(e, ox, oy) {
+    const charging = e.laserPhase === "charge";
+    const firing = e.laserPhase === "fire";
+    if (!charging && !firing) return;
+    const reach = beamReach(world.map, e.x, e.y, e.beamAng);
+    const ca = Math.cos(e.beamAng);
+    const sa = Math.sin(e.beamAng);
+    const x0 = e.x - ox;
+    const y0 = e.y - oy;
+    const step = firing ? 1 : 2;
+    for (let d = 6; d < reach; d += step) {
+      const x = (x0 + ca * d) | 0;
+      const y = (y0 + sa * d) | 0;
+      if (firing) {
+        bctx.fillStyle = "#6a1060";
+        bctx.fillRect(x - 2, y - 2, 6, 6);
+        bctx.fillStyle = "#ff4dff";
+        bctx.fillRect(x - 1, y - 1, 4, 4);
+        if (d % 3 === 0) {
+          bctx.fillStyle = "#ffffff";
+          bctx.fillRect(x, y, 2, 2);
+        }
+      } else {
+        const pulse = ((time * 12) | 0) % 2 === 0;
+        bctx.fillStyle = pulse ? "#ecd4ff" : "#c77dff";
+        bctx.fillRect(x, y, 1, 1);
+      }
+    }
+    if (charging) {
+      const t = 1 - e.laserT / 0.95;
+      bctx.fillStyle = "#ff4dff";
+      bctx.fillRect((x0 - 2) | 0, (y0 - 2) | 0, 5, 5);
+      bctx.fillStyle = t > 0.6 ? "#ffffff" : "#ecd4ff";
+      bctx.fillRect((x0 - 1) | 0, (y0 - 1) | 0, 3, 3);
+    }
+  }
+
   function drawSpinjitzu(ox, oy) {
     const t = 1 - slash.life / (slash.max || SPIN_LIFE);
     const spin = t * Math.PI * 8;
@@ -1063,6 +1297,7 @@ export function createGame(canvas, ui) {
         if (kind === T.WALL || kind === T.VOID) img = world.tiles.wall;
         else if (kind === T.CRATE) img = world.tiles.crate;
         else if (kind === T.GOO) img = world.tiles.goo[tick % 2];
+        else if (kind === T.LAVA) img = (world.tiles.lava || world.tiles.goo)[tick % 2];
         else if (kind === T.PORTAL) img = world.tiles.portal[tick % 2];
         bctx.drawImage(img, x, y);
       }
@@ -1089,6 +1324,8 @@ export function createGame(canvas, ui) {
         bctx.fillStyle = C.hp;
         bctx.fillRect(x, y - 3, (img.width * e.hp) / e.maxHp, 2);
       }
+      if (e.gene.weapon === "shock") drawShockRing(e, ox, oy);
+      if (e.gene.weapon === "laser") drawLaserBeam(e, ox, oy);
     }
 
     const lock = nearestEnemy();

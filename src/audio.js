@@ -74,6 +74,33 @@ export function sfxFlame() {
   tone(48, 0.28, "square", 0.04, -18);
 }
 
+export function sfxBurn() {
+  noise(0.14, 0.055, 420);
+  tone(160, 0.16, "sawtooth", 0.045, -90);
+}
+
+export function sfxShockWind() {
+  tone(70, 0.5, "sine", 0.035, 160);
+  tone(110, 0.45, "triangle", 0.02, 90);
+}
+
+export function sfxShock() {
+  noise(0.22, 0.08, 180);
+  tone(52, 0.2, "square", 0.07, -20);
+  tone(90, 0.12, "sawtooth", 0.04, -40);
+}
+
+export function sfxLaserCharge() {
+  tone(240, 0.9, "sawtooth", 0.028, 520);
+  tone(180, 0.9, "triangle", 0.018, 380);
+}
+
+export function sfxLaserFire() {
+  noise(0.14, 0.07, 2600);
+  tone(920, 0.22, "square", 0.055, -480);
+  tone(420, 0.18, "sawtooth", 0.04, -200);
+}
+
 export function sfxShoot(machine = false) {
   if (machine) {
     noise(0.03, 0.045, 1800);

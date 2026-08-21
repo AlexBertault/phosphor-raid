@@ -63,6 +63,19 @@ export function creatureSprite(rng, genome, frame = 0) {
     stamp(grid, size, size, cx, cy + bob, genome.coreR * 0.8, 1);
     stamp(grid, size, size, cx - genome.coreR - 1, cy + bob, 1.4, 1);
     stamp(grid, size, size, cx + genome.coreR + 1, cy + bob, 1.4, 1);
+  } else if (genome.body === "shock") {
+    stamp(grid, size, size, cx, cy + bob, genome.coreR + 0.5, 1);
+    stamp(grid, size, size, cx, cy + bob, genome.coreR * 0.5, 1);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + (frame ? 0.16 : 0);
+      stamp(grid, size, size, cx + Math.cos(a) * (genome.coreR + 1.4), cy + Math.sin(a) * (genome.coreR + 1.2) + bob, 1.15, 1);
+    }
+  } else if (genome.body === "laser") {
+    stamp(grid, size, size, cx, cy + 1 + bob, genome.coreR, 1);
+    stamp(grid, size, size, cx, cy - genome.coreR * 0.4 + bob, genome.coreR * 0.7, 1);
+    stamp(grid, size, size, cx, cy - genome.coreR - 0.4 + bob, 1.3, 1);
+    stamp(grid, size, size, cx - 1, cy - genome.coreR * 0.2 + bob, 1.1, 1);
+    stamp(grid, size, size, cx + 1, cy - genome.coreR * 0.2 + bob, 1.1, 1);
   } else {
     stamp(grid, size, size, cx, cy + bob, genome.coreR, 1);
     const bumps = genome.limbs;
@@ -241,6 +254,7 @@ export function tileSheet(rng, theme = C) {
   const wall = makeCanvas(16, 16);
   const crate = makeCanvas(16, 16);
   const goo = [makeCanvas(16, 16), makeCanvas(16, 16)];
+  const lava = [makeCanvas(16, 16), makeCanvas(16, 16)];
   const portal = [makeCanvas(16, 16), makeCanvas(16, 16)];
   const fa = theme.floorA || C.floorA;
   const fb = theme.floorB || C.floorB;
@@ -318,6 +332,12 @@ export function tileSheet(rng, theme = C) {
         const d = Math.hypot(x - 7.5, y - 7.5);
         px(goo[f].ctx, x, y, d < 6.5 ? gooC : fb);
         if (d < 4 && (f || nxy(x, y, 131 + f) > 0.45)) px(goo[f].ctx, x, y, gooHi);
+        px(lava[f].ctx, x, y, "#3a1410");
+        const lh = nxy(x >> 1, y >> 1, 141 + f);
+        if (lh > 0.28) px(lava[f].ctx, x, y, gooC);
+        if (lh > 0.68) px(lava[f].ctx, x, y, gooHi);
+        if (nxy(x, y, 151 + f) > 0.9) px(lava[f].ctx, x, y, f ? "#fff3e0" : gooHi);
+        if (x === 0 || y === 0 || x === 15 || y === 15) px(lava[f].ctx, x, y, wallLo);
         px(portal[f].ctx, x, y, fb);
         if (d < 7) px(portal[f].ctx, x, y, f ? portalB : portalA);
         if (d < 4) px(portal[f].ctx, x, y, voidC);
@@ -331,6 +351,7 @@ export function tileSheet(rng, theme = C) {
     wall: wall.c,
     crate: crate.c,
     goo: goo.map((g) => g.c),
+    lava: lava.map((g) => g.c),
     portal: portal.map((p) => p.c),
     wild: wild.c,
   };

@@ -7,6 +7,7 @@ export const T = {
   CRATE: 3,
   PORTAL: 4,
   GOO: 5,
+  LAVA: 6,
 };
 
 export const TILE = 16;
@@ -139,6 +140,29 @@ export function generateDungeon(seed, opts = {}) {
   const portalY = portalRoom.cy;
   tiles[idx(cols, startX, startY)] = T.FLOOR;
   tiles[idx(cols, portalX, portalY)] = T.PORTAL;
+
+  if (opts.biome === "lava") {
+    const lavaChance = opts.lavaChance ?? 0.8;
+    for (const room of placed) {
+      if (room === start) continue;
+      if (room.w < 6 || room.h < 6) continue;
+      if (!rng.chance(lavaChance)) continue;
+      const pw = rng.chance(0.4) ? 3 : 2;
+      const ph = rng.chance(0.4) ? 3 : 2;
+      const x = rng.int(room.x + 1, Math.max(room.x + 1, room.x + room.w - pw - 1));
+      const y = rng.int(room.y + 1, Math.max(room.y + 1, room.y + room.h - ph - 1));
+      let blocked = false;
+      for (let yy = y; yy < y + ph && !blocked; yy++) {
+        for (let xx = x; xx < x + pw; xx++) {
+          if ((xx === startX && yy === startY) || (xx === portalX && yy === portalY)) blocked = true;
+        }
+      }
+      if (blocked) continue;
+      carveRect(tiles, cols, rows, x, y, pw, ph, T.LAVA);
+    }
+    tiles[idx(cols, startX, startY)] = T.FLOOR;
+    tiles[idx(cols, portalX, portalY)] = T.PORTAL;
+  }
 
   return {
     tiles,
