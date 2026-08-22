@@ -689,6 +689,12 @@ export function createGame(canvas, ui) {
     canvas.height = VIEW_H * scale;
     canvas.style.width = canvas.width + "px";
     canvas.style.height = canvas.height + "px";
+    const stage = document.querySelector("#stage");
+    if (stage) {
+      stage.style.width = canvas.width + "px";
+      stage.style.height = canvas.height + "px";
+    }
+    document.documentElement.style.setProperty("--px", scale + "px");
     dctx.imageSmoothingEnabled = false;
   }
 
@@ -1247,6 +1253,11 @@ export function createGame(canvas, ui) {
     bctx.fillRect(px - 1, py - 1, 3, 3);
   }
 
+  function tileVar(set, c, r) {
+    if (Array.isArray(set)) return set[(c * 3 + r * 7) & (set.length - 1)];
+    return set;
+  }
+
   function draw() {
     if (!player || !world) return;
     const sx = (Math.random() - 0.5) * shake;
@@ -1264,7 +1275,7 @@ export function createGame(canvas, ui) {
       for (let gy = gy0; gy <= gy1; gy++) {
         for (let gx = gx0; gx <= gx1; gx++) {
           if (gx >= 0 && gy >= 0 && gx < world.map.cols && gy < world.map.rows) continue;
-          bctx.drawImage(world.tiles.wild, (gx * TILE - ox) | 0, (gy * TILE - oy) | 0);
+          bctx.drawImage(tileVar(world.tiles.wild, gx, gy), (gx * TILE - ox) | 0, (gy * TILE - oy) | 0);
         }
       }
     }
@@ -1280,8 +1291,8 @@ export function createGame(canvas, ui) {
         const kind = world.map.tiles[r * world.map.cols + c];
         const x = (c * TILE - ox) | 0;
         const y = (r * TILE - oy) | 0;
-        let img = world.tiles.floor;
-        if (kind === T.WALL || kind === T.VOID) img = world.tiles.wall;
+        let img = tileVar(world.tiles.floor, c, r);
+        if (kind === T.WALL || kind === T.VOID) img = tileVar(world.tiles.wall, c, r);
         else if (kind === T.CRATE) img = world.tiles.crate;
         else if (kind === T.GOO) img = world.tiles.goo[tick % 2];
         else if (kind === T.LAVA) img = (world.tiles.lava || world.tiles.goo)[tick % 2];
@@ -1402,6 +1413,13 @@ export function createGame(canvas, ui) {
     const mh = 32;
     const x0 = VIEW_W - mw - 4;
     const y0 = VIEW_H - mh - 4;
+    bctx.fillStyle = "#09070fcc";
+    bctx.fillRect(x0 - 2, y0 - 2, mw + 4, mh + 4);
+    bctx.fillStyle = C.visor;
+    bctx.fillRect(x0 - 2, y0 - 2, mw + 4, 1);
+    bctx.fillRect(x0 - 2, y0 + mh + 1, mw + 4, 1);
+    bctx.fillRect(x0 - 2, y0 - 2, 1, mh + 4);
+    bctx.fillRect(x0 + mw + 1, y0 - 2, 1, mh + 4);
     bctx.fillStyle = "#09070fcc";
     bctx.fillRect(x0 - 1, y0 - 1, mw + 2, mh + 2);
     const sx = mw / world.map.cols;

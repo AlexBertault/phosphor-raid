@@ -127,14 +127,15 @@ export function creatureSprite(rng, genome, frame = 0) {
       let color = primary;
       if (!grid[(y - 2) * size + x]) color = highlight;
       else if (!grid[(y + 2) * size + x]) color = shadow;
-      if ((x + y) % 5 === 0) color = shadow;
       px(ctx, x, y, color);
     }
   }
 
   for (const [ex, ey] of eyes) {
     px(ctx, ex, ey, accent);
-    px(ctx, ex + 1, ey, C.outline);
+    px(ctx, ex + 1, ey, accent);
+    px(ctx, ex, ey + 1, C.outline);
+    px(ctx, ex + 1, ey + 1, C.outline);
   }
 
   if (genome.snout) {
@@ -232,6 +233,22 @@ function fillMottle(ctx, a, b, c, seed) {
   }
 }
 
+function fillFlat(ctx, a, speck, seed, thresh) {
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      px(ctx, x, y, nxy(x, y, seed) > thresh ? speck : a);
+    }
+  }
+}
+
+function paintVeins(ctx, color, seed, thresh) {
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      if (nxy(x, y, seed) > thresh) px(ctx, x, y, color);
+    }
+  }
+}
+
 function paintCobble(ctx, grout, s0, s1, s2, rng) {
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) px(ctx, x, y, grout);
@@ -249,9 +266,6 @@ function paintCobble(ctx, grout, s0, s1, s2, rng) {
 
 export function tileSheet(rng, theme = C) {
   const biome = theme.biome || "cave";
-  const wild = makeCanvas(16, 16);
-  const floor = makeCanvas(16, 16);
-  const wall = makeCanvas(16, 16);
   const crate = makeCanvas(16, 16);
   const goo = [makeCanvas(16, 16), makeCanvas(16, 16)];
   const lava = [makeCanvas(16, 16), makeCanvas(16, 16)];
@@ -272,49 +286,56 @@ export function tileSheet(rng, theme = C) {
   const portalB = theme.portal2 || C.portal2;
   const voidC = theme.void || C.void;
 
-  if (biome === "grass") {
-    fillMottle(floor.ctx, fa, fb, fc, 11);
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        if (nxy(x, y, 19) > 0.975) px(floor.ctx, x, y, pebble);
-        if (nxy(x, y, 23) > 0.988) px(floor.ctx, x, y, "#8a7a30");
-      }
+  function paintFloor(ctx, salt) {
+    if (biome === "grass") {
+      fillFlat(ctx, fa, fb, 11 + salt, 0.94);
+      paintVeins(ctx, pebble, 19 + salt, 0.99);
+    } else if (biome === "lava") {
+      fillFlat(ctx, fa, fc, 51 + salt, 0.94);
+      paintVeins(ctx, pebble, 57 + salt, 0.99);
+      paintVeins(ctx, gooHi, 59 + salt, 0.996);
+    } else if (biome === "gem") {
+      fillMottle(ctx, fa, fb, fc, 71 + salt);
+      paintVeins(ctx, pebble, 83 + salt, 0.97);
+    } else {
+      fillFlat(ctx, fa, fc, 101 + salt, 0.94);
     }
-    fillMottle(wall.ctx, pebble, wallC, wallLo, 31);
-    stampWrap(wall.ctx, 5, 6, 3.2, 2.6, wallHi);
-    stampWrap(wall.ctx, 12, 11, 2.8, 2.4, wallC);
-    fillMottle(wild.ctx, "#3a2818", "#2a1c10", "#1e140c", 41);
-  } else if (biome === "lava") {
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        const h = nxy(x >> 1, y >> 1, 51);
-        px(floor.ctx, x, y, h > 0.88 ? fc : h > 0.5 ? fb : fa);
-      }
+  }
+
+  function paintWall(ctx, salt) {
+    if (biome === "grass") {
+      fillFlat(ctx, pebble, wallLo, 31 + salt, 0.96);
+    } else if (biome === "lava") {
+      fillFlat(ctx, wallC, wallHi, 63 + salt, 0.96);
+      paintVeins(ctx, gooC, 67 + salt, 0.992);
+    } else if (biome === "gem") {
+      paintCobble(ctx, wallLo, wallC, fa, wallHi, rng);
+      paintVeins(ctx, pebble, 79 + salt, 0.94);
+    } else {
+      fillFlat(ctx, wallC, wallHi, 107 + salt, 0.96);
     }
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        px(wall.ctx, x, y, wallC);
-      }
-    }
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        px(wild.ctx, x, y, wallLo);
-      }
-    }
-  } else if (biome === "gem") {
-    fillMottle(floor.ctx, fa, fb, fc, 71);
-    paintCobble(wall.ctx, wallLo, wallC, fa, wallHi, rng);
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        if (nxy(x, y, 79) > 0.94) px(wall.ctx, x, y, pebble);
-        if (nxy(x, y, 83) > 0.97) px(floor.ctx, x, y, pebble);
-      }
-    }
-    fillMottle(wild.ctx, wallLo, voidC, wallC, 91);
-  } else {
-    fillMottle(floor.ctx, fa, fb, fc, 101);
-    paintCobble(wall.ctx, wallLo, wallC, wallHi, fa, rng);
-    fillMottle(wild.ctx, wallLo, voidC, pebble, 111);
+  }
+
+  function paintWild(ctx, salt) {
+    if (biome === "grass") fillFlat(ctx, "#2a1c10", "#1e140c", 41 + salt, 0.94);
+    else if (biome === "lava") fillFlat(ctx, wallLo, voidC, 61 + salt, 0.96);
+    else if (biome === "gem") fillMottle(ctx, wallLo, voidC, wallC, 91 + salt);
+    else fillFlat(ctx, wallLo, voidC, 111 + salt, 0.96);
+  }
+
+  const floors = [];
+  const walls = [];
+  const wilds = [];
+  for (let i = 0; i < 4; i++) {
+    const f = makeCanvas(16, 16);
+    const w = makeCanvas(16, 16);
+    const v = makeCanvas(16, 16);
+    paintFloor(f.ctx, i * 19);
+    paintWall(w.ctx, i * 23);
+    paintWild(v.ctx, i * 29);
+    floors.push(f.c);
+    walls.push(w.c);
+    wilds.push(v.c);
   }
 
   for (let y = 0; y < 16; y++) {
@@ -347,12 +368,12 @@ export function tileSheet(rng, theme = C) {
   }
 
   return {
-    floor: floor.c,
-    wall: wall.c,
+    floor: floors,
+    wall: walls,
     crate: crate.c,
     goo: goo.map((g) => g.c),
     lava: lava.map((g) => g.c),
     portal: portal.map((p) => p.c),
-    wild: wild.c,
+    wild: wilds,
   };
 }

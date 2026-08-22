@@ -8,53 +8,55 @@
   </head>
   <body>
     <div id="frame">
-      <canvas id="game"></canvas>
-      <div id="blood"></div>
-      <div id="scanlines"></div>
-      <div id="vignette"></div>
-      <div id="hud" class="hidden">
-        <div id="left">
-          <div id="hp"></div>
-          <div id="loadout">
-            <span id="weapon">GUN</span>
-            <div id="ammo"></div>
+      <div id="stage">
+        <canvas id="game"></canvas>
+        <div id="blood"></div>
+        <div id="scanlines"></div>
+        <div id="vignette"></div>
+        <div id="hud" class="hidden">
+          <div id="left">
+            <div id="hp"></div>
+            <div id="loadout">
+              <span id="weapon">GUN</span>
+              <div id="ammo"></div>
+            </div>
+            <div id="coins">0c</div>
+            <div id="dev-badge" class="hidden">DEV</div>
           </div>
-          <div id="coins">0c</div>
-          <div id="dev-badge" class="hidden">DEV · [ ] FLOOR · 1 2 5 0 BIOMES</div>
+          <div id="meta">
+            <span id="floor">DEPTH 1</span>
+            <span id="best">BEST 0</span>
+            <span id="kills">0 KILLS</span>
+            <span id="seed"></span>
+          </div>
         </div>
-        <div id="meta">
-          <span id="floor">DEPTH 1</span>
-          <span id="best">BEST 0</span>
-          <span id="kills">0 KILLS</span>
-          <span id="seed"></span>
+        <div id="toast"></div>
+        <div id="empty-cue" class="hidden">EMPTY<span>PRESS R</span></div>
+        <div id="shop" class="hidden">
+          <div class="panel shop-panel">
+            <p class="eyebrow" id="shop-eyebrow">DEPTH CLEAR</p>
+            <h2>CONGRATS</h2>
+            <p class="blurb" id="shop-blurb">Spend what you pulled. Then drop deeper.</p>
+            <p class="shop-title">ARMORY · <span id="shop-coins">0</span>c</p>
+            <div id="shop-list"></div>
+            <button id="descend" type="button">DESCEND</button>
+            <p class="shop-hint">1–8 BUY · ENTER NEXT CRYPT</p>
+          </div>
         </div>
-      </div>
-      <div id="toast"></div>
-      <div id="empty-cue" class="hidden">EMPTY<span>PRESS R</span></div>
-      <div id="shop" class="hidden">
-        <div class="panel shop-panel">
-          <p class="eyebrow" id="shop-eyebrow">DEPTH CLEAR</p>
-          <h2>CONGRATS</h2>
-          <p class="blurb" id="shop-blurb">Spend what you pulled. Then drop deeper.</p>
-          <p class="shop-title">ARMORY · <span id="shop-coins">0</span>c</p>
-          <div id="shop-list"></div>
-          <button id="descend" type="button">DESCEND</button>
-          <p class="shop-hint">1–8 BUY · ENTER NEXT CRYPT</p>
-        </div>
-      </div>
-      <div id="overlay">
-        <div class="panel">
-          <p class="eyebrow">32-BIT DUNGEON PROTOCOL</p>
-          <h1>PHOSPHOR<br />RAID</h1>
-          <p class="blurb">
-            Every raid is a depth run. Early floors are tiny and fast.
-            Then the crypt grows, genomes get meaner, and you chase a new best.
-          </p>
-          <button id="start" type="button">INSERT COIN</button>
-          <p class="controls">
-            WASD move · SPACE shoot · Q swipe · R reload · SHIFT dash
-            · ` DEV
-          </p>
+        <div id="overlay">
+          <div class="panel">
+            <p class="eyebrow">32-BIT DUNGEON PROTOCOL</p>
+            <h1>PHOSPHOR<br />RAID</h1>
+            <p class="blurb">
+              Every raid is a depth run. Early floors are tiny and fast.
+              Then the crypt grows, genomes get meaner, and you chase a new best.
+            </p>
+            <button id="start" type="button">INSERT COIN</button>
+            <p class="controls">
+              WASD move · SPACE shoot · Q swipe · R reload · SHIFT dash
+              · ` DEV
+            </p>
+          </div>
         </div>
       </div>
     </div>
