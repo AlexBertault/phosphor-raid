@@ -10,6 +10,7 @@ const hud = document.querySelector("#hud");
 
 const ui = {
   hp: document.querySelector("#hp"),
+  air: document.querySelector("#air"),
   floor: document.querySelector("#floor"),
   kills: document.querySelector("#kills"),
   seed: document.querySelector("#seed"),

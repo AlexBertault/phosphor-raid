@@ -1,5 +1,5 @@
 import { createRng, hashSeed } from "./rng.js";
-import { C, biomeOf, biomeName, themeOf, pickPalette } from "./palette.js";
+import { C, biomeOf, biomeName, themeOf, pickPalette, bossTier, bossTitle } from "./palette.js";
 import { creatureSprite, playerSprite, tileSheet } from "./sprites.js";
 import {
   T,
@@ -18,6 +18,18 @@ const VIEW_H = 180;
 const MELEE_REACH = 32;
 const SPIN_LIFE = 0.4;
 const BEST_KEY = "phosphor-best";
+const MAX_AIR = 7;
+const FOG_R = 56;
+const FOG_R2 = FOG_R * FOG_R;
+const DEV_JUMPS = [
+  ["Digit1", "1", 1],
+  ["Digit2", "2", 4],
+  ["Digit3", "3", 7],
+  ["Digit4", "4", 10],
+  ["Digit5", "5", 13],
+  ["Digit6", "6", 16],
+  ["Digit7", "7", 19],
+];
 const SHOP = [
   { id: "dual", name: "DUAL WIELD", desc: "two barrels", cost: 22, once: true },
   { id: "mg", name: "MACHINE GUN", desc: "18 rnd spray", cost: 40, once: true },
@@ -31,22 +43,6 @@ const SHOP = [
 
 const BODIES = ["orb", "skitter", "grub", "tank", "drone"];
 const AIS = ["chase", "strafe", "orbit", "ambush"];
-const WEAPONS = ["bite", "spit", "spread"];
-const BOSS_PAL = [
-  ["#ff4d1a", "#7a1808", "#ffc857", "#fff3e0"],
-  ["#ff7d4d", "#5a1208", "#ffd0be", "#5ce1ff"],
-  ["#ffc857", "#8a2a10", "#fff3e0", "#ff4d9a"],
-  ["#ff2d6a", "#6a1020", "#ffb3d4", "#ffc857"],
-];
-const GEM_BOSS_PAL = [
-  ["#c77dff", "#4a2870", "#ecd4ff", "#5ce1ff"],
-  ["#ff4dff", "#6a1060", "#ffb3f4", "#ffc857"],
-];
-
-function bossTier(floor) {
-  if (floor < 5 || floor % 5 !== 0) return 0;
-  return (floor / 5) | 0;
-}
 
 function rayHit(px, py, ox, oy, ang) {
   const cx = Math.cos(ang);
@@ -70,14 +66,15 @@ function beamReach(map, x, y, ang, maxLen = 240) {
 function tune(floor) {
   const t = Math.max(0, floor - 1);
   const biome = biomeOf(floor);
+  const tiny = floor === 1;
   return {
     biome,
-    cols: biome === "grass" ? 20 : Math.min(64, 22 + t * 4),
-    rows: biome === "grass" ? 14 : Math.min(48, 16 + t * 3),
-    splits: biome === "grass" ? 2 : Math.min(26, 3 + t * 3),
-    loops: biome === "grass" ? 1 : Math.min(7, 1 + (t >> 1)),
-    crateMax: biome === "grass" ? 1 : Math.min(4, t < 2 ? 0 : 1 + ((t / 3) | 0)),
-    gooChance: biome === "grass" ? 0.22 : biome === "lava" ? 0.08 : Math.min(0.5, t < 2 ? 0.04 : 0.14 + t * 0.04),
+    cols: tiny ? 20 : Math.min(64, 22 + t * 4),
+    rows: tiny ? 14 : Math.min(48, 16 + t * 3),
+    splits: tiny ? 2 : Math.min(26, 3 + t * 3),
+    loops: tiny ? 1 : Math.min(7, 1 + (t >> 1)),
+    crateMax: tiny ? 1 : Math.min(4, t < 2 ? 0 : 1 + ((t / 3) | 0)),
+    gooChance: biome === "slime" ? 0.55 : biome === "lava" ? 0.08 : biome === "grass" ? 0.18 : Math.min(0.45, t < 2 ? 0.04 : 0.12 + t * 0.03),
     lavaChance: biome === "lava" ? 0.85 : 0,
     skipChance: biome === "grass" ? 0.15 : Math.max(0, 0.4 - t * 0.07),
     maxPerRoom: biome === "grass" ? 1 : Math.min(5, 1 + ((t / 2) | 0)),
@@ -117,6 +114,24 @@ function genome(rng, p) {
       damage: 1,
     };
   }
+  if (p.biome === "slime" && rng.chance(0.4)) {
+    const sizePx = rng.int(16, 22);
+    return {
+      body: "orb",
+      palette: pickPalette(rng, "slime"),
+      eyes: 1,
+      spikes: 0,
+      snout: false,
+      limbs: 4,
+      coreR: sizePx * 0.28,
+      sizePx,
+      ai: "orbit",
+      weapon: "bite",
+      hp: Math.max(2, 2 + ((t / 5) | 0)),
+      speed: 12 + t * 0.3,
+      damage: 1,
+    };
+  }
   if (p.biome === "gem" && rng.chance(0.4)) {
     const sizePx = rng.int(16, 20);
     return {
@@ -133,6 +148,42 @@ function genome(rng, p) {
       hp: Math.max(2, 2 + ((t / 5) | 0)),
       speed: 8,
       damage: 3,
+    };
+  }
+  if (p.biome === "ocean" && rng.chance(0.38)) {
+    const sizePx = rng.int(16, 22);
+    return {
+      body: "grub",
+      palette: pickPalette(rng, "ocean"),
+      eyes: 1,
+      spikes: 0,
+      snout: true,
+      limbs: 2,
+      coreR: sizePx * 0.24,
+      sizePx,
+      ai: "strafe",
+      weapon: "spread",
+      hp: Math.max(2, 2 + ((t / 5) | 0)),
+      speed: 16,
+      damage: 1,
+    };
+  }
+  if (p.biome === "dark" && rng.chance(0.35)) {
+    const sizePx = rng.int(16, 20);
+    return {
+      body: "drone",
+      palette: pickPalette(rng, "dark"),
+      eyes: 1,
+      spikes: 4,
+      snout: false,
+      limbs: 2,
+      coreR: sizePx * 0.22,
+      sizePx,
+      ai: "ambush",
+      weapon: "spit",
+      hp: 3,
+      speed: 20,
+      damage: 2,
     };
   }
   const body = rng.pick(p.bodies);
@@ -156,27 +207,40 @@ function genome(rng, p) {
 }
 
 function bossGenome(rng, p) {
-  const tier = Math.max(1, bossTier(p.floor ?? 5));
-  const sizePx = Math.min(56, 34 + tier * 6);
-  return {
-    body: "brute",
+  const tier = Math.max(1, bossTier(p.floor ?? 3));
+  const sizePx = Math.min(56, 32 + tier * 4);
+  const base = {
     boss: true,
-    palette: rng.pick(p.biome === "gem" ? GEM_BOSS_PAL : BOSS_PAL),
+    sizePx,
+    coreR: sizePx * 0.36,
     eyes: Math.min(5, 2 + (tier >> 1)),
-    spikes: 6 + tier * 2,
     snout: true,
     limbs: 6,
-    coreR: sizePx * 0.36,
-    sizePx,
-    ai: tier >= 3 ? "strafe" : "chase",
-    weapon: "flame",
-    hp: 8 + tier * 7,
-    speed: 11 + tier * 1.4,
-    damage: 2,
-    flameR: 6 + tier * 2,
-    flameN: Math.min(5, tier),
-    flameSpeed: Math.min(38, 16 + tier * 3),
+    hp: 6 + tier * 5,
+    speed: 12 + tier * 1.1,
+    damage: Math.min(3, 1 + (tier >= 3 ? 1 : 0)),
+    spikes: 6,
   };
+  const b = p.biome;
+  if (b === "grass") {
+    return { ...base, body: "tank", palette: pickPalette(rng, "grass"), weapon: "spread", ai: "chase", spikes: 10, hp: 7 };
+  }
+  if (b === "cave") {
+    return { ...base, body: "brute", palette: pickPalette(rng, "cave"), weapon: "spit", ai: "chase", hp: 10 };
+  }
+  if (b === "lava") {
+    return { ...base, body: "shock", palette: pickPalette(rng, "lava"), weapon: "shock", ai: "orbit", spikes: 10, hp: 13 };
+  }
+  if (b === "slime") {
+    return { ...base, body: "orb", palette: pickPalette(rng, "slime"), weapon: "shock", ai: "orbit", split: 2, hp: 14, spikes: 0 };
+  }
+  if (b === "ocean") {
+    return { ...base, body: "grub", palette: pickPalette(rng, "ocean"), weapon: "spread", ai: "ambush", hp: 16, speed: 18 };
+  }
+  if (b === "dark") {
+    return { ...base, body: "brute", palette: pickPalette(rng, "dark"), weapon: "flame", ai: "chase", flameR: 7, flameN: 3, flameSpeed: 22, hp: 16, damage: 2 };
+  }
+  return { ...base, body: "laser", palette: pickPalette(rng, "gem"), weapon: "laser", ai: "ambush", hp: 18 + Math.max(0, tier - 7) * 4, damage: 3 };
 }
 
 function makeEnemy(rng, x, y, p, boss = false) {
@@ -252,7 +316,7 @@ function spawnFloor(seed, floor) {
       enemies.push(makeEnemy(rng, x, y, p));
     }
   }
-  return { rng, map, tiles, enemies, p, theme, biome: p.biome };
+  return { rng, map, tiles, enemies, p, theme, biome: p.biome, seen: p.biome === "dark" ? new Uint8Array(map.cols * map.rows) : null };
 }
 
 function readBest() {
@@ -310,6 +374,8 @@ export function createGame(canvas, ui) {
   let meleeT = 0;
   let emptyT = 0;
   let lavaT = 0;
+  let air = MAX_AIR;
+  let drownT = 0;
   let slash = null;
   let coins = 0;
   let kit = { dual: false, mg: false, reload: false, hearts: 0 };
@@ -359,6 +425,8 @@ export function createGame(canvas, ui) {
     meleeT = 0;
     emptyT = 0;
     lavaT = 0;
+    air = MAX_AIR;
+    drownT = 0;
     slash = null;
     hideShop();
     const place = biomeName(floor);
@@ -366,7 +434,7 @@ export function createGame(canvas, ui) {
       newRun
         ? "SURFACE · THE CAVE WAITS"
         : bossTier(floor)
-          ? "DEPTH " + floor + " · BOSS GENOME"
+          ? "BOSS · " + bossTitle(floor)
           : "DEPTH " + floor + " · " + place,
     );
     const frameEl = canvas.closest("#frame") || document.querySelector("#frame");
@@ -375,9 +443,11 @@ export function createGame(canvas, ui) {
     if (ui.seed) ui.seed.textContent = "SEED " + seed.toString(16).toUpperCase();
     renderDepth();
     renderHp();
+    renderAir();
     renderKills();
     renderLoadout();
     renderCoins();
+    markFog();
   }
 
   function gunStats() {
@@ -420,6 +490,20 @@ export function createGame(canvas, ui) {
       const pip = document.createElement("div");
       pip.className = "pip" + (i < player.hp ? "" : " empty");
       ui.hp.appendChild(pip);
+    }
+  }
+
+  function renderAir() {
+    if (!ui.air) return;
+    const under = world?.biome === "ocean" && !over && !shopping;
+    ui.air.classList.toggle("hidden", !under);
+    if (!under) return;
+    ui.air.innerHTML = "";
+    const filled = Math.ceil((air / MAX_AIR) * MAX_AIR);
+    for (let i = 0; i < MAX_AIR; i++) {
+      const pip = document.createElement("div");
+      pip.className = "pip air" + (i < filled ? "" : " empty") + (air <= 2 ? " low" : "");
+      ui.air.appendChild(pip);
     }
   }
 
@@ -525,8 +609,11 @@ export function createGame(canvas, ui) {
       ui.shopEyebrow.textContent = wonFloor ? "DEPTH " + floor + " CLEAR" : "DEPTH " + floor + " SKIP";
     }
     if (ui.shopBlurb) {
+      const nxt = biomeName(floor + 1);
       ui.shopBlurb.textContent = wonFloor
-        ? "Nice. HP carries. Spend coins here, then drop into a meaner crypt."
+        ? bossTier(floor)
+          ? bossTitle(floor) + " down. Next: " + nxt + "."
+          : "Nice. HP carries. Next is " + nxt + "."
         : "Skipped leftover packs — their coins stay behind. Stock up or press on.";
     }
     ui.shop.classList.remove("hidden");
@@ -598,6 +685,37 @@ export function createGame(canvas, ui) {
       burst(e.x, e.y, C.amber, 5);
       addCoins((e.gene.boss ? floor * 3 : floor) + (Math.random() < 0.35 ? floor : 0));
       if (Math.random() < 0.1) spawnPickup(e.x, e.y);
+      if (e.gene.split) spawnSlimeKids(e);
+    }
+  }
+
+  function spawnSlimeKids(e) {
+    const n = e.gene.split | 0;
+    if (!world) return;
+    for (let i = 0; i < n; i++) {
+      const ox = i ? 10 : -10;
+      const oy = i ? 8 : -8;
+      const child = makeEnemy(world.rng, e.x + ox, e.y + oy, world.p, false);
+      child.gene = {
+        ...child.gene,
+        body: "orb",
+        palette: e.gene.palette,
+        weapon: "bite",
+        ai: "orbit",
+        boss: false,
+        split: 0,
+        hp: 2,
+        speed: 18,
+        damage: 1,
+        sizePx: 14,
+        coreR: 4,
+      };
+      child.hp = 2;
+      child.maxHp = 2;
+      child.r = 5;
+      child.aggro = true;
+      child.frames = [creatureSprite(world.rng, child.gene, 0), creatureSprite(world.rng, child.gene, 1)];
+      world.enemies.push(child);
     }
   }
 
@@ -704,6 +822,7 @@ export function createGame(canvas, ui) {
     let bestDist = 190;
     for (const e of world.enemies) {
       if (!e.alive) continue;
+      if (world.biome === "dark" && !inLamp(e.x, e.y)) continue;
       const d = Math.hypot(e.x - player.x, e.y - player.y);
       if (d < bestDist) {
         bestDist = d;
@@ -814,8 +933,10 @@ export function createGame(canvas, ui) {
     }
     const onGoo = tileAt(world.map, player.x, player.y) === T.GOO;
     const onLava = tileAt(world.map, player.x, player.y) === T.LAVA;
+    const onBubble = tileAt(world.map, player.x, player.y) === T.BUBBLE;
     if (onGoo && dashT <= 0) {
-      moveCircle(world.map, player, move.x * -speed * 0.25 * dt, move.y * -speed * 0.25 * dt);
+      const stick = world.biome === "slime" ? 0.62 : 0.25;
+      moveCircle(world.map, player, move.x * -speed * stick * dt, move.y * -speed * stick * dt);
     }
     lavaT = Math.max(0, lavaT - dt);
     if (onLava && dashT <= 0) {
@@ -827,6 +948,18 @@ export function createGame(canvas, ui) {
         burst(player.x, player.y, C.flame, 10);
         burst(player.x, player.y, C.flameHi, 6);
       }
+    }
+
+    if (world.biome === "ocean") {
+      if (onBubble) air = Math.min(MAX_AIR, air + dt * 2.6);
+      else air = Math.max(0, air - dt);
+      drownT = Math.max(0, drownT - dt);
+      if (air <= 0 && drownT <= 0) {
+        drownT = 0.7;
+        hurtPlayer(1);
+        burst(player.x, player.y, C.visor, 8);
+      }
+      if (((time * 8) | 0) !== (((time - dt) * 8) | 0)) renderAir();
     }
 
     if (keys.has("KeyQ") || keys.has("q") || keys.has("KeyF") || keys.has("f")) {
@@ -887,7 +1020,7 @@ export function createGame(canvas, ui) {
       const dy = player.y - e.y;
       const dist = Math.hypot(dx, dy) || 1;
       const g = e.gene;
-      if (dist < world.p.aggro) e.aggro = true;
+      if (dist < world.p.aggro && (world.biome !== "dark" || inLamp(e.x, e.y) || dist < 36)) e.aggro = true;
       if (g.weapon === "laser" && dist < 168) e.aggro = true;
       if (g.weapon === "shock" && dist < 96) e.aggro = true;
       if (!e.aggro) {
@@ -1253,6 +1386,29 @@ export function createGame(canvas, ui) {
     bctx.fillRect(px - 1, py - 1, 3, 3);
   }
 
+  function inLamp(x, y) {
+    if (!player || world?.biome !== "dark") return true;
+    const dx = x - player.x;
+    const dy = y - player.y;
+    return dx * dx + dy * dy <= FOG_R2;
+  }
+
+  function markFog() {
+    if (!player || world?.biome !== "dark" || !world.seen) return;
+    const cols = world.map.cols;
+    const c0 = Math.max(0, Math.floor((player.x - FOG_R) / TILE));
+    const r0 = Math.max(0, Math.floor((player.y - FOG_R) / TILE));
+    const c1 = Math.min(world.map.cols - 1, Math.ceil((player.x + FOG_R) / TILE));
+    const r1 = Math.min(world.map.rows - 1, Math.ceil((player.y + FOG_R) / TILE));
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        const dx = (c + 0.5) * TILE - player.x;
+        const dy = (r + 0.5) * TILE - player.y;
+        if (dx * dx + dy * dy <= FOG_R2) world.seen[r * cols + c] = 1;
+      }
+    }
+  }
+
   function tileVar(set, c, r) {
     if (Array.isArray(set)) return set[(c * 3 + r * 7) & (set.length - 1)];
     return set;
@@ -1267,6 +1423,7 @@ export function createGame(canvas, ui) {
     const theme = world.theme || C;
     bctx.fillStyle = theme.void || C.void;
     bctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    markFog();
     if (world.tiles.wild) {
       const gx0 = Math.floor(ox / TILE) - 1;
       const gy0 = Math.floor(oy / TILE) - 1;
@@ -1296,7 +1453,17 @@ export function createGame(canvas, ui) {
         else if (kind === T.CRATE) img = world.tiles.crate;
         else if (kind === T.GOO) img = world.tiles.goo[tick % 2];
         else if (kind === T.LAVA) img = (world.tiles.lava || world.tiles.goo)[tick % 2];
+        else if (kind === T.BUBBLE) img = (world.tiles.bubble || world.tiles.goo)[tick % 2];
         else if (kind === T.PORTAL) img = world.tiles.portal[tick % 2];
+        if (world.biome === "dark" && world.seen) {
+          if (!world.seen[r * world.map.cols + c]) continue;
+          bctx.drawImage(img, x, y);
+          if (!inLamp((c + 0.5) * TILE, (r + 0.5) * TILE)) {
+            bctx.fillStyle = "rgba(4,4,8,0.72)";
+            bctx.fillRect(x, y, TILE, TILE);
+          }
+          continue;
+        }
         bctx.drawImage(img, x, y);
       }
     }
@@ -1308,6 +1475,7 @@ export function createGame(canvas, ui) {
 
     for (const e of world.enemies) {
       if (!e.alive) continue;
+      if (world.biome === "dark" && !inLamp(e.x, e.y)) continue;
       const img = e.frames[((e.t * 6) | 0) & 1];
       const x = (e.x - ox - img.width / 2) | 0;
       const y = (e.y - oy - img.height / 2) | 0;
@@ -1428,12 +1596,14 @@ export function createGame(canvas, ui) {
       for (let c = 0; c < world.map.cols; c++) {
         const k = world.map.tiles[r * world.map.cols + c];
         if (k === T.WALL || k === T.VOID) continue;
-        bctx.fillStyle = k === T.PORTAL ? world.theme?.portal || C.portal : world.theme?.minimap || "#3a3355";
+        if (world.biome === "dark" && world.seen && !world.seen[r * world.map.cols + c]) continue;
+        bctx.fillStyle = k === T.PORTAL ? world.theme?.portal || C.portal : k === T.BUBBLE ? C.visor : world.theme?.minimap || "#3a3355";
         bctx.fillRect(x0 + c * sx, y0 + r * sy, Math.max(1, sx), Math.max(1, sy));
       }
     }
     bctx.fillStyle = C.hp;
     for (const e of world.enemies) {
+      if (world.biome === "dark" && !inLamp(e.x, e.y)) continue;
       const s = e.gene.boss ? 3 : 1;
       bctx.fillStyle = e.gene.boss ? C.flame : C.hp;
       bctx.fillRect(x0 + (e.x / TILE) * sx, y0 + (e.y / TILE) * sy, s, s);
@@ -1500,15 +1670,14 @@ export function createGame(canvas, ui) {
   function tickDev() {
     if (eatKey("Backquote", "`")) {
       setDev(!dev);
-      toast(dev ? "DEV ON · [ ] FLOORS · 1 SURF 2 CAVE 5 MAGMA 0 GEM" : "DEV OFF");
+      toast(dev ? "DEV ON · [ ] FLOORS · 1-7 WORLDS" : "DEV OFF");
     }
     if (!dev || shopping) return;
     if (eatKey("BracketLeft", "[")) jumpTo(floor - 1);
     if (eatKey("BracketRight", "]")) jumpTo(floor + 1);
-    if (eatKey("Digit1", "1")) jumpTo(1);
-    if (eatKey("Digit2", "2")) jumpTo(2);
-    if (eatKey("Digit5", "5")) jumpTo(5);
-    if (eatKey("Digit0", "0")) jumpTo(10);
+    for (const [code, ch, depth] of DEV_JUMPS) {
+      if (eatKey(code, ch)) jumpTo(depth);
+    }
   }
 
   function start() {

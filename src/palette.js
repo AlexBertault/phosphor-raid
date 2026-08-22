@@ -28,6 +28,8 @@ export const C = {
   steelHi: "#f4f7ff",
 };
 
+export const WORLDS = ["grass", "cave", "lava", "slime", "ocean", "dark", "gem"];
+
 export const GENE_PALETTES = [
   ["#7dff9a", "#1f6a44", "#c8ffe0", "#ff4d9a"],
   ["#ff4d9a", "#7a2048", "#ffb3d4", "#5ce1ff"],
@@ -55,10 +57,25 @@ const BIOME_GENES = {
     ["#ff7d4d", "#5a1208", "#ffd0be", "#5ce1ff"],
     ["#ffc857", "#8a2a10", "#fff3e0", "#ff4d9a"],
   ],
+  slime: [
+    ["#7dff4d", "#2a6a18", "#d4ffb0", "#ff4d9a"],
+    ["#4dff8a", "#186a38", "#c8ffe0", "#ffc857"],
+    ["#c8ff4d", "#4a6a10", "#f2ffc8", "#5ce1ff"],
+  ],
+  ocean: [
+    ["#5ce1ff", "#184868", "#d4f6ff", "#ffc857"],
+    ["#4d8aff", "#102848", "#b0d4ff", "#ff4d9a"],
+    ["#4dffd0", "#186058", "#c8fff2", "#ff7d4d"],
+  ],
   gem: [
     ["#c77dff", "#4a2870", "#ecd4ff", "#5ce1ff"],
     ["#ff4dff", "#6a1060", "#ffb3f4", "#c77dff"],
     ["#5ce1ff", "#281860", "#d4f6ff", "#ff4d9a"],
+  ],
+  dark: [
+    ["#6a6880", "#181820", "#c8c8d8", "#5ce1ff"],
+    ["#ff4d9a", "#2a1020", "#ffb3d4", "#c77dff"],
+    ["#3a3a48", "#0c0c12", "#8a8a98", "#ffc857"],
   ],
 };
 
@@ -83,22 +100,54 @@ export function mix(a, b, t) {
 }
 
 export function biomeOf(floor) {
-  if (floor <= 1) return "grass";
-  if (floor <= 4) return "cave";
-  if (floor <= 9) return "lava";
-  return "gem";
+  const i = Math.min(WORLDS.length - 1, Math.max(0, Math.floor((floor - 1) / 3)));
+  return WORLDS[i];
+}
+
+export function worldSlot(floor) {
+  return ((Math.max(1, floor) - 1) % 3) + 1;
+}
+
+export function isBossFloor(floor) {
+  return floor > 0 && floor % 3 === 0;
+}
+
+export function bossTier(floor) {
+  if (!isBossFloor(floor)) return 0;
+  return floor / 3;
+}
+
+export function bossTitle(floor) {
+  const b = biomeOf(floor);
+  if (b === "grass") return "ROOT";
+  if (b === "cave") return "BRUTE";
+  if (b === "lava") return "CORE";
+  if (b === "slime") return "KING SLIME";
+  if (b === "ocean") return "LEVIATHAN";
+  if (b === "gem") return "PRISM";
+  return "WARDEN";
 }
 
 export function biomeName(floor) {
   const b = biomeOf(floor);
-  if (b === "grass") return "SURFACE";
-  if (b === "cave") return floor === 2 ? "CAVE MOUTH" : "STONE CRYPT";
+  const slot = worldSlot(floor);
+  if (b === "grass") return slot === 1 ? "SURFACE" : slot === 2 ? "MEADOW" : "GROVE";
+  if (b === "cave") return slot === 1 ? "CAVE MOUTH" : slot === 2 ? "STONE CRYPT" : "BOSS CRYPT";
   if (b === "lava") return "MAGMA";
-  return "GEM HELL";
+  if (b === "slime") return "SLIME HELL";
+  if (b === "ocean") return slot === 3 ? "TRENCH" : "ABYSS";
+  if (b === "gem") return "GEM HELL";
+  return "DEEP DARK";
+}
+
+export function worldStart(biome) {
+  const i = WORLDS.indexOf(biome);
+  return i < 0 ? 1 : i * 3 + 1;
 }
 
 export function themeOf(floor) {
   const biome = biomeOf(floor);
+  const t = (worldSlot(floor) - 1) / 2;
   if (biome === "grass") {
     return {
       biome,
@@ -121,7 +170,6 @@ export function themeOf(floor) {
     };
   }
   if (biome === "cave") {
-    const t = Math.min(1, (floor - 2) / 2);
     return {
       biome,
       void: mix("#18181a", "#141416", t),
@@ -143,7 +191,6 @@ export function themeOf(floor) {
     };
   }
   if (biome === "lava") {
-    const t = Math.min(1, (floor - 5) / 4);
     return {
       biome,
       void: mix("#140808", "#0e0404", t),
@@ -164,25 +211,87 @@ export function themeOf(floor) {
       minimap: "#ff4d1a",
     };
   }
-  const t = Math.min(1, (floor - 10) / 8);
+  if (biome === "slime") {
+    return {
+      biome,
+      void: mix("#0c1808", "#081208", t),
+      floorA: mix("#3a6a28", "#326022", t),
+      floorB: mix("#2a521c", "#244818", t),
+      floorC: mix("#4a7a32", "#42702c", t),
+      pebble: mix("#7dff4d", "#6ae040", t),
+      wall: mix("#1a3014", "#162810", t),
+      wallHi: mix("#2a4820", "#24401c", t),
+      wallLo: mix("#0e1c0a", "#0a1608", t),
+      goo: mix("#5dff4d", "#3ad030", t),
+      gooHi: mix("#c8ff80", "#8aff50", t),
+      portal: "#7dff9a",
+      portal2: "#d0ff4d",
+      crate: "#4a6a18",
+      crateHi: "#8adb4a",
+      crateLo: "#243010",
+      minimap: "#7dff4d",
+    };
+  }
+  if (biome === "ocean") {
+    return {
+      biome,
+      void: mix("#061018", "#040c14", t),
+      floorA: mix("#1a3a58", "#16324e", t),
+      floorB: mix("#142c48", "#102440", t),
+      floorC: mix("#245070", "#1c4868", t),
+      pebble: mix("#5ce1ff", "#4ac8e8", t),
+      wall: mix("#0c1828", "#0a1422", t),
+      wallHi: mix("#183048", "#14283e", t),
+      wallLo: mix("#08101a", "#060c14", t),
+      goo: mix("#2a80c8", "#1a68b0", t),
+      gooHi: mix("#7ad4ff", "#5ce1ff", t),
+      portal: "#5ce1ff",
+      portal2: "#4dffd0",
+      crate: "#2a4860",
+      crateHi: "#5a88a8",
+      crateLo: "#102030",
+      minimap: "#5ce1ff",
+    };
+  }
+  if (biome === "gem") {
+    return {
+      biome,
+      void: mix("#101018", "#0c0c14", t),
+      floorA: mix("#3a3a58", "#323250", t),
+      floorB: mix("#2e2e4a", "#282844", t),
+      floorC: mix("#484868", "#404060", t),
+      pebble: mix("#c090ff", "#a070e0", t),
+      wall: mix("#1a1a30", "#16162a", t),
+      wallHi: mix("#2a2a48", "#242440", t),
+      wallLo: mix("#10101c", "#0c0c16", t),
+      goo: mix("#6a20a0", "#3a1060", t),
+      gooHi: mix("#ff4dff", "#c77dff", t),
+      portal: "#c77dff",
+      portal2: "#ff4d9a",
+      crate: "#4a2870",
+      crateHi: "#c77dff",
+      crateLo: "#1a0c28",
+      minimap: "#c77dff",
+    };
+  }
   return {
     biome,
-    void: mix("#141820", "#101418", t),
-    floorA: mix("#4a5870", "#3e4c64", t),
-    floorB: mix("#3a4860", "#323e54", t),
-    floorC: mix("#5a6890", "#4e5c80", t),
-    pebble: mix("#c090ff", "#a070e0", t),
-    wall: mix("#2a3448", "#222a3c", t),
-    wallHi: mix("#b080e0", "#9868c8", t),
-    wallLo: mix("#1a2030", "#141824", t),
-    goo: mix("#6a20a0", "#3a1060", t),
-    gooHi: mix("#ff4dff", "#5ce1ff", t),
-    portal: "#c77dff",
+    void: mix("#08080c", "#040408", t),
+    floorA: mix("#1c1c24", "#16161e", t),
+    floorB: mix("#14141c", "#101018", t),
+    floorC: mix("#262630", "#20202a", t),
+    pebble: mix("#5ce1ff", "#3a3a48", t),
+    wall: mix("#0c0c12", "#08080e", t),
+    wallHi: mix("#1a1a22", "#14141c", t),
+    wallLo: mix("#06060a", "#040408", t),
+    goo: mix("#2a1020", "#1a0a14", t),
+    gooHi: mix("#ff4d9a", "#c77dff", t),
+    portal: "#5ce1ff",
     portal2: "#ff4d9a",
-    crate: "#4a2870",
-    crateHi: "#c77dff",
-    crateLo: "#1a0c28",
-    minimap: "#c77dff",
+    crate: "#2a2a38",
+    crateHi: "#5a5a70",
+    crateLo: "#101018",
+    minimap: "#3a3a48",
   };
 }
 

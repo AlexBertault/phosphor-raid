@@ -104,6 +104,30 @@ body {
   background: #0c0814;
 }
 
+#frame[data-biome="slime"] {
+  background: #0c1808;
+}
+
+#frame[data-biome="slime"] #game {
+  background: #0c1808;
+}
+
+#frame[data-biome="ocean"] {
+  background: #061018;
+}
+
+#frame[data-biome="ocean"] #game {
+  background: #061018;
+}
+
+#frame[data-biome="dark"] {
+  background: #040408;
+}
+
+#frame[data-biome="dark"] #game {
+  background: #040408;
+}
+
 #frame[data-biome="cave"] #scanlines {
   opacity: 0.1;
 }
@@ -126,6 +150,30 @@ body {
 
 #frame[data-biome="gem"] #vignette {
   background: radial-gradient(ellipse at center, transparent 62%, rgba(10, 4, 18, 0.34) 100%);
+}
+
+#frame[data-biome="slime"] #scanlines {
+  opacity: 0.12;
+}
+
+#frame[data-biome="slime"] #vignette {
+  background: radial-gradient(ellipse at center, transparent 64%, rgba(8, 20, 6, 0.28) 100%);
+}
+
+#frame[data-biome="ocean"] #scanlines {
+  opacity: 0.16;
+}
+
+#frame[data-biome="ocean"] #vignette {
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(4, 12, 22, 0.4) 100%);
+}
+
+#frame[data-biome="dark"] #scanlines {
+  opacity: 0.08;
+}
+
+#frame[data-biome="dark"] #vignette {
+  background: radial-gradient(ellipse at center, transparent 48%, rgba(0, 0, 0, 0.72) 100%);
 }
 
 #blood {
@@ -245,6 +293,33 @@ body {
 #hp {
   display: flex;
   gap: 6px;
+}
+
+#air {
+  display: flex;
+  gap: 4px;
+}
+
+#air.hidden {
+  display: none;
+}
+
+.pip.air {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px #5ce1ffaa;
+}
+
+.pip.air.empty {
+  background: #1a2a32;
+  box-shadow: none;
+}
+
+.pip.air.low {
+  background: #ff4d9a;
+  box-shadow: 0 0 8px #ff4d9aaa;
 }
 
 #left {

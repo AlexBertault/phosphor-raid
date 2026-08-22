@@ -269,6 +269,7 @@ export function tileSheet(rng, theme = C) {
   const crate = makeCanvas(16, 16);
   const goo = [makeCanvas(16, 16), makeCanvas(16, 16)];
   const lava = [makeCanvas(16, 16), makeCanvas(16, 16)];
+  const bubble = [makeCanvas(16, 16), makeCanvas(16, 16)];
   const portal = [makeCanvas(16, 16), makeCanvas(16, 16)];
   const fa = theme.floorA || C.floorA;
   const fb = theme.floorB || C.floorB;
@@ -295,8 +296,13 @@ export function tileSheet(rng, theme = C) {
       paintVeins(ctx, pebble, 57 + salt, 0.99);
       paintVeins(ctx, gooHi, 59 + salt, 0.996);
     } else if (biome === "gem") {
-      fillMottle(ctx, fa, fb, fc, 71 + salt);
-      paintVeins(ctx, pebble, 83 + salt, 0.97);
+      fillFlat(ctx, fa, fc, 71 + salt, 0.94);
+      paintVeins(ctx, pebble, 83 + salt, 0.988);
+    } else if (biome === "slime") {
+      fillFlat(ctx, fa, fc, 91 + salt, 0.94);
+      paintVeins(ctx, pebble, 97 + salt, 0.99);
+    } else if (biome === "ocean") {
+      fillFlat(ctx, fa, fc, 81 + salt, 0.94);
     } else {
       fillFlat(ctx, fa, fc, 101 + salt, 0.94);
     }
@@ -309,8 +315,8 @@ export function tileSheet(rng, theme = C) {
       fillFlat(ctx, wallC, wallHi, 63 + salt, 0.96);
       paintVeins(ctx, gooC, 67 + salt, 0.992);
     } else if (biome === "gem") {
-      paintCobble(ctx, wallLo, wallC, fa, wallHi, rng);
-      paintVeins(ctx, pebble, 79 + salt, 0.94);
+      fillFlat(ctx, wallC, wallHi, 79 + salt, 0.96);
+      paintVeins(ctx, pebble, 79 + salt, 0.985);
     } else {
       fillFlat(ctx, wallC, wallHi, 107 + salt, 0.96);
     }
@@ -319,7 +325,7 @@ export function tileSheet(rng, theme = C) {
   function paintWild(ctx, salt) {
     if (biome === "grass") fillFlat(ctx, "#2a1c10", "#1e140c", 41 + salt, 0.94);
     else if (biome === "lava") fillFlat(ctx, wallLo, voidC, 61 + salt, 0.96);
-    else if (biome === "gem") fillMottle(ctx, wallLo, voidC, wallC, 91 + salt);
+    else if (biome === "gem") fillFlat(ctx, wallLo, voidC, 91 + salt, 0.96);
     else fillFlat(ctx, wallLo, voidC, 111 + salt, 0.96);
   }
 
@@ -359,6 +365,13 @@ export function tileSheet(rng, theme = C) {
         if (lh > 0.68) px(lava[f].ctx, x, y, gooHi);
         if (nxy(x, y, 151 + f) > 0.9) px(lava[f].ctx, x, y, f ? "#fff3e0" : gooHi);
         if (x === 0 || y === 0 || x === 15 || y === 15) px(lava[f].ctx, x, y, wallLo);
+        px(bubble[f].ctx, x, y, fa);
+        const by = (y + (f ? 6 : 0)) % 16;
+        if (nxy(x, by, 161 + f) > 0.86) px(bubble[f].ctx, x, y, gooHi);
+        if (nxy(x, by, 171 + f) > 0.93) px(bubble[f].ctx, x, y, "#e8ffe9");
+        if (x === 6 || x === 9) {
+          if ((y + f * 3) % 5 === 0) px(bubble[f].ctx, x, y, gooC);
+        }
         px(portal[f].ctx, x, y, fb);
         if (d < 7) px(portal[f].ctx, x, y, f ? portalB : portalA);
         if (d < 4) px(portal[f].ctx, x, y, voidC);
@@ -373,6 +386,7 @@ export function tileSheet(rng, theme = C) {
     crate: crate.c,
     goo: goo.map((g) => g.c),
     lava: lava.map((g) => g.c),
+    bubble: bubble.map((g) => g.c),
     portal: portal.map((p) => p.c),
     wild: wilds,
   };
