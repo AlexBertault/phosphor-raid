@@ -1,5 +1,5 @@
 import { createRng, hashSeed } from "./rng.js";
-import { C, biomeOf, biomeName, themeOf, pickPalette, bossTier, bossTitle } from "./palette.js";
+import { C, biomeOf, biomeName, biomeBlurb, worldIndex, themeOf, pickPalette, bossTier, bossTitle } from "./palette.js";
 import { creatureSprite, playerSprite, tileSheet } from "./sprites.js";
 import {
   T,
@@ -12,13 +12,14 @@ import {
 } from "./map.js";
 import { bindInput, axis, keys } from "./input.js";
 import * as sfx from "./audio.js";
+import { getSettings } from "./settings.js";
 
 const VIEW_W = 320;
 const VIEW_H = 180;
 const MELEE_REACH = 32;
 const SPIN_LIFE = 0.4;
 const BEST_KEY = "phosphor-best";
-const MAX_AIR = 7;
+const MAX_AIR = 6;
 const FOG_R = 56;
 const FOG_R2 = FOG_R * FOG_R;
 const DEV_JUMPS = [
@@ -382,6 +383,7 @@ export function createGame(canvas, ui) {
   let time = 0;
   let running = false;
   let last = 0;
+  let briefing = false;
 
   function landOnFloor({ newRun = false } = {}) {
     if (newRun || !player) {
@@ -499,7 +501,7 @@ export function createGame(canvas, ui) {
     ui.air.classList.toggle("hidden", !under);
     if (!under) return;
     ui.air.innerHTML = "";
-    const filled = Math.ceil((air / MAX_AIR) * MAX_AIR);
+    const filled = Math.max(0, Math.ceil(air - 0.001));
     for (let i = 0; i < MAX_AIR; i++) {
       const pip = document.createElement("div");
       pip.className = "pip air" + (i < filled ? "" : " empty") + (air <= 2 ? " low" : "");
@@ -738,9 +740,9 @@ export function createGame(canvas, ui) {
     }
   }
 
-  function hurtPlayer(dmg) {
-    if (dev || invuln > 0 || over) return;
-    if (kit.vest) dmg = Math.max(1, dmg - 1);
+  function hurtPlayer(dmg, env = false) {
+    if ((!env && dev) || invuln > 0 || over) return;
+    if (kit.vest && !env) dmg = Math.max(1, dmg - 1);
     player.hp -= dmg;
     invuln = 0.72;
     shake = 5;
@@ -877,6 +879,11 @@ export function createGame(canvas, ui) {
       if (toastT <= 0) ui.toast.textContent = "";
     }
     tickDev();
+    if (briefing) {
+      tickBrief();
+      syncVitals();
+      return;
+    }
     if (over || !player) {
       syncVitals();
       return;
@@ -943,7 +950,7 @@ export function createGame(canvas, ui) {
       moveCircle(world.map, player, move.x * -speed * 0.35 * dt, move.y * -speed * 0.35 * dt);
       if (lavaT <= 0) {
         lavaT = 0.52;
-        hurtPlayer(1);
+        hurtPlayer(1, true);
         sfx.sfxBurn();
         burst(player.x, player.y, C.flame, 10);
         burst(player.x, player.y, C.flameHi, 6);
@@ -951,15 +958,24 @@ export function createGame(canvas, ui) {
     }
 
     if (world.biome === "ocean") {
-      if (onBubble) air = Math.min(MAX_AIR, air + dt * 2.6);
-      else air = Math.max(0, air - dt);
+      if (onBubble) {
+        const was = air;
+        air = Math.min(MAX_AIR, air + dt * 3.2);
+        if (was < MAX_AIR - 0.2 && ((time * 10) | 0) !== (((time - dt) * 10) | 0)) {
+          burst(player.x, player.y - 4, C.visor, 2);
+        }
+      } else {
+        air = Math.max(0, air - dt * 1.35);
+      }
       drownT = Math.max(0, drownT - dt);
       if (air <= 0 && drownT <= 0) {
-        drownT = 0.7;
-        hurtPlayer(1);
-        burst(player.x, player.y, C.visor, 8);
+        drownT = 0.55;
+        hurtPlayer(1, true);
+        sfx.sfxBurn();
+        burst(player.x, player.y, C.visor, 10);
+        toast("DROWNING");
       }
-      if (((time * 8) | 0) !== (((time - dt) * 8) | 0)) renderAir();
+      renderAir();
     }
 
     if (keys.has("KeyQ") || keys.has("q") || keys.has("KeyF") || keys.has("f")) {
@@ -1270,14 +1286,38 @@ export function createGame(canvas, ui) {
     }
   }
 
+  function tickBrief() {
+    if (keys.has("Enter") || keys.has("enter") || keys.has("NumpadEnter") || keys.has("Space")) {
+      keys.delete("Enter");
+      keys.delete("enter");
+      keys.delete("NumpadEnter");
+      keys.delete("Space");
+      closeBrief();
+    }
+  }
+
+  function closeBrief() {
+    briefing = false;
+    if (ui.hideBrief) ui.hideBrief();
+  }
+
+  function maybeBrief() {
+    if (ui.showBrief) {
+      briefing = true;
+      ui.showBrief(worldIndex(floor), biomeName(floor), biomeBlurb(floor));
+    }
+  }
+
   function nextFloor() {
     writeBest(floor);
+    const prev = biomeOf(floor);
     floor += 1;
     world = spawnFloor(seed, floor);
     landOnFloor({ newRun: false });
+    if (biomeOf(floor) !== prev) maybeBrief();
   }
 
-  function restart() {
+  function restart(opts = {}) {
     seed = (Math.random() * 1e9) | 0;
     floor = 1;
     kills = 0;
@@ -1285,6 +1325,7 @@ export function createGame(canvas, ui) {
     landOnFloor({ newRun: true });
     ui.hideOverlay();
     over = false;
+    if (!opts.skipBrief) maybeBrief();
   }
 
   function drawShockRing(e, ox, oy) {
@@ -1416,8 +1457,9 @@ export function createGame(canvas, ui) {
 
   function draw() {
     if (!player || !world) return;
-    const sx = (Math.random() - 0.5) * shake;
-    const sy = (Math.random() - 0.5) * shake;
+    const amp = getSettings().shake ? shake : 0;
+    const sx = (Math.random() - 0.5) * amp;
+    const sy = (Math.random() - 0.5) * amp;
     const ox = cam.x + sx;
     const oy = cam.y + sy;
     const theme = world.theme || C;
@@ -1562,6 +1604,12 @@ export function createGame(canvas, ui) {
         bctx.fillRect(0, 0, 3, VIEW_H);
         bctx.fillRect(VIEW_W - 3, 0, 3, VIEW_H);
       }
+      if (world.biome === "ocean" && player) {
+        const t = 1 - air / MAX_AIR;
+        const a = 0.1 + t * 0.38 + (air <= 0 ? 0.12 * Math.abs(Math.sin(time * 9)) : 0);
+        bctx.fillStyle = "rgba(8, 40, 70," + a + ")";
+        bctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      }
       if (player.hp > 0 && (player.hp <= 2 || player.hp / player.maxHp <= 0.34)) {
         const bpm = player.hp === 1 ? 11 : 7.5;
         const beat = Math.max(0, Math.sin(time * bpm));
@@ -1654,6 +1702,7 @@ export function createGame(canvas, ui) {
       renderLoadout();
     }
     toast((dev ? "DEV · " : "") + "DEPTH " + floor + " · " + biomeName(floor));
+    maybeBrief();
   }
 
   function eatKey(...codes) {
@@ -1683,8 +1732,8 @@ export function createGame(canvas, ui) {
   function start() {
     layout();
     setDev(dev);
-    restart();
     const depth = Number(boot.get("depth") || 0);
+    restart({ skipBrief: depth > 1 });
     if (depth > 1) jumpTo(depth);
     if (running) return;
     running = true;
@@ -1696,5 +1745,5 @@ export function createGame(canvas, ui) {
   layout();
   if (ui.descend) ui.descend.addEventListener("click", leaveShop);
 
-  return { start, restart };
+  return { start, restart, closeBrief };
 }

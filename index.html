@@ -44,19 +44,46 @@
             <p class="shop-hint">1–8 BUY · ENTER NEXT CRYPT</p>
           </div>
         </div>
+        <div id="brief" class="hidden">
+          <div class="panel brief-panel">
+            <p class="eyebrow" id="brief-world">WORLD 1</p>
+            <h2 id="brief-name">SURFACE</h2>
+            <p class="blurb" id="brief-blurb"></p>
+            <button id="brief-go" type="button">ENTER</button>
+          </div>
+        </div>
         <div id="overlay">
-          <div class="panel">
+          <div id="title-view" class="panel">
             <p class="eyebrow">32-BIT DUNGEON PROTOCOL</p>
             <h1>PHOSPHOR<br />RAID</h1>
             <p class="blurb">
-              Every raid is a depth run. Early floors are tiny and fast.
-              Then the crypt grows, genomes get meaner, and you chase a new best.
+              A depth run. Worlds get stranger. The last floor of each theme is a boss.
+              Chase a new best.
             </p>
-            <button id="start" type="button">INSERT COIN</button>
+            <div class="menu-btns">
+              <button id="start" type="button">START</button>
+              <button id="settings-btn" class="ghost" type="button">SETTINGS</button>
+            </div>
             <p class="controls">
               WASD move · SPACE shoot · Q swipe · R reload · SHIFT dash
-              · ` DEV
             </p>
+          </div>
+          <div id="settings-view" class="panel hidden">
+            <p class="eyebrow">CONFIG</p>
+            <h2>SETTINGS</h2>
+            <label class="set-row"><input id="set-mute" type="checkbox" /> MUTE</label>
+            <label class="set-row"><input id="set-scan" type="checkbox" /> SCANLINES</label>
+            <label class="set-row"><input id="set-shake" type="checkbox" /> SCREEN SHAKE</label>
+            <button id="settings-back" class="ghost" type="button">BACK</button>
+          </div>
+          <div id="over-view" class="panel over hidden">
+            <p class="eyebrow" id="over-eyebrow">SIGNAL LOST</p>
+            <h1 id="over-title">DEPTH<br />1</h1>
+            <p class="blurb" id="over-blurb"></p>
+            <div class="menu-btns">
+              <button id="again" type="button">GO DEEPER</button>
+              <button id="to-title" class="ghost" type="button">TITLE</button>
+            </div>
           </div>
         </div>
       </div>

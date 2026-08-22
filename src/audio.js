@@ -236,7 +236,19 @@ export function tickMusic() {
   startMusic();
 }
 
+export function setMuted(on) {
+  muted = !!on;
+  if (musicGain) musicGain.gain.value = muted ? 0 : 0.32;
+  if (sfxGain) sfxGain.gain.value = muted ? 0 : 0.9;
+  if (muted && musicEl) musicEl.pause();
+  else if (!muted && musicEl) musicEl.play().catch(() => {});
+}
+
+export function isMuted() {
+  return muted;
+}
+
 export function unlockAudio() {
   ac();
-  startMusic();
+  if (!muted) startMusic();
 }

@@ -140,9 +140,19 @@ export function biomeName(floor) {
   return "DEEP DARK";
 }
 
-export function worldStart(biome) {
-  const i = WORLDS.indexOf(biome);
-  return i < 0 ? 1 : i * 3 + 1;
+export function worldIndex(floor) {
+  return Math.min(WORLDS.length, Math.max(1, Math.floor((Math.max(1, floor) - 1) / 3) + 1));
+}
+
+export function biomeBlurb(floor) {
+  const b = biomeOf(floor);
+  if (b === "grass") return "Open dirt. Learn the gun. The cave is already listening.";
+  if (b === "cave") return "Stone rooms, meaner packs. Smash crates. Spend what you pull.";
+  if (b === "lava") return "The rock cooks. Pits burn. Shockwave genomes swell, then hit.";
+  if (b === "slime") return "The floor is alive. Green patches cling. Step in them and you crawl.";
+  if (b === "ocean") return "You cannot breathe here. Bubble columns are the only air. Leave them and you drown.";
+  if (b === "dark") return "A lamp in the black. What you have not seen is not there yet.";
+  return "Last theme. Crystal casters charge a beam. Do not stand in it.";
 }
 
 export function themeOf(floor) {

@@ -523,13 +523,90 @@ body {
   min-height: 14px;
 }
 
+#scanlines.off,
+#vignette.off {
+  opacity: 0;
+}
+
+#brief {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 4, 10, 0.78);
+  pointer-events: auto;
+}
+
+#brief.hidden {
+  display: none;
+}
+
+.brief-panel {
+  border-color: var(--cyan);
+}
+
+.brief-panel h2 {
+  font-size: clamp(16px, 3.4vw, 26px);
+  line-height: 1.3;
+  color: var(--cyan);
+  text-shadow: 0 0 16px #5ce1ff99, 3px 3px 0 #ff4d9a;
+  margin-bottom: 14px;
+}
+
+.menu-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+button.ghost {
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--cyan);
+  background: transparent;
+  border: 3px solid var(--cyan);
+  padding: 12px 16px;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 #05040a;
+}
+
+button.ghost:hover {
+  background: #5ce1ff22;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  color: var(--ink);
+  margin: 0 auto 12px;
+  width: fit-content;
+  letter-spacing: 1px;
+}
+
+.set-row input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--green);
+}
+
+#title-view.hidden,
+#settings-view.hidden,
+#over-view.hidden {
+  display: none;
+}
+
 #overlay {
   position: absolute;
   inset: 0;
   z-index: 8;
   display: grid;
   place-items: center;
-  background: rgba(5, 4, 10, 0.72);
+  background: rgba(5, 4, 10, 0.78);
+  pointer-events: auto;
 }
 
 #overlay.hidden {
@@ -573,7 +650,9 @@ h1 {
   max-width: 42ch;
 }
 
-#start {
+#start,
+#again,
+#brief-go {
   font-family: inherit;
   font-size: 12px;
   color: #05040a;
@@ -584,7 +663,9 @@ h1 {
   box-shadow: 4px 4px 0 #ff4d9a;
 }
 
-#start:hover {
+#start:hover,
+#again:hover,
+#brief-go:hover {
   background: var(--cyan);
 }
 

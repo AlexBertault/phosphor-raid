@@ -207,7 +207,7 @@ export function generateDungeon(seed, opts = {}) {
       if ((x === portalX && y <= portalY && y + h > portalY) || (x === startX && y <= startY && y + h > startY)) continue;
       placeCol(x, y, h);
     }
-    tiles[idx(cols, startX, startY)] = T.BUBBLE;
+    tiles[idx(cols, startX, startY)] = T.FLOOR;
     tiles[idx(cols, portalX, portalY)] = T.PORTAL;
   }
 
